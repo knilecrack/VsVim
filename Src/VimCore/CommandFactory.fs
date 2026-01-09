@@ -157,7 +157,44 @@ type internal CommandFactory
         |> Seq.map processMotionBinding
         |> List.ofSeq
 
-    member x.CreateMovementCommands() = 
+    /// Create normal mode commands for switching to visual mode with text objects (vi(, va{, etc.)
+    member x.CreateVisualTextObjectCommands() =
+        let processMotionBinding (binding: MotionBinding) =
+            // Determine what kind of text object we are dealing with
+            let textObjectKind = 
+                if Util.IsFlagSet binding.MotionFlags MotionFlags.TextObjectWithLineToCharacter then
+                    TextObjectKind.LineToCharacter
+                elif Util.IsFlagSet binding.MotionFlags MotionFlags.TextObjectWithAlwaysCharacter then
+                    TextObjectKind.AlwaysCharacter
+                elif Util.IsFlagSet binding.MotionFlags MotionFlags.TextObjectWithAlwaysLine then
+                    TextObjectKind.AlwaysLine
+                else
+                    TextObjectKind.None
+
+            match binding with
+            | MotionBinding.Static (name, _, motion) -> 
+                // Convert text object binding (e.g., "i(") to visual command (e.g., "vi(")
+                // Get the original string representation
+                let originalKeys = name.KeyInputs |> Seq.toList
+                if originalKeys.Length > 0 then
+                    // Prepend 'v' to the key sequence
+                    let vKey = KeyInputUtil.CharToKeyInput 'v'
+                    let newKeys = vKey :: originalKeys
+                    let viName = KeyInputSet(newKeys)
+                    let vaCommand = NormalCommand.SwitchModeVisualCommandWithTextObject (VisualKind.Character, motion, textObjectKind)
+                    Some (CommandBinding.NormalBinding(viName, CommandFlags.Special, vaCommand))
+                else
+                    None
+            | MotionBinding.Dynamic _ ->
+                // Skip dynamic bindings for now (like marks)
+                None
+
+        _capture.MotionBindings
+        |> Seq.filter (fun binding -> Util.IsFlagSet binding.MotionFlags MotionFlags.TextObject)
+        |> Seq.choose processMotionBinding
+        |> List.ofSeq
+
+    member x.CreateMovementCommands() =
         let standard = SharedStandardMovementBindings
         let taken = standard |> Seq.map (fun command -> command.KeyInputSet) |> Set.ofSeq
         let motion = 

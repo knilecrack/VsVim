@@ -3006,6 +3006,7 @@ type internal CommandUtil
                 | VisualKind.Character -> true
                 | VisualKind.Line -> true
                 | VisualKind.Block -> false
+            | NormalCommand.SwitchModeVisualCommandWithTextObject _ -> false
             | NormalCommand.SwitchToSelection _ -> true
             | NormalCommand.Yank _ -> true
             | _ -> false
@@ -3126,6 +3127,7 @@ type internal CommandUtil
         | NormalCommand.SplitViewVertically -> x.SplitViewVertically()
         | NormalCommand.SwitchMode (modeKind, modeArgument) -> x.SwitchMode modeKind modeArgument
         | NormalCommand.SwitchModeVisualCommand visualKind -> x.SwitchModeVisualCommand visualKind data.Count
+        | NormalCommand.SwitchModeVisualCommandWithTextObject (visualKind, motion, textObjectKind) -> x.SwitchModeVisualCommandWithTextObject visualKind motion textObjectKind data.Count
         | NormalCommand.SwitchPreviousVisualMode -> x.SwitchPreviousVisualMode()
         | NormalCommand.SwitchToSelection caretMovement -> x.SwitchToSelection caretMovement
         | NormalCommand.ToggleFoldUnderCaret -> x.ToggleFoldUnderCaret count
@@ -4287,6 +4289,42 @@ type internal CommandUtil
         | _ ->
             let modeKind = x.GetVisualOrSelectModeKind SelectModeOptions.Command visualKind
             CommandResult.Completed (ModeSwitch.SwitchMode modeKind)
+
+    /// Switch to visual mode and select a text object
+    member x.SwitchModeVisualCommandWithTextObject visualKind motion textObjectKind count =
+        // Get the text object at the current caret position
+        match _motionUtil.GetTextObject motion x.CaretPoint with
+        | None -> 
+            // No text object found, just beep
+            _commonOperations.Beep()
+            CommandResult.Error
+        | Some motionResult ->
+            // Determine the visual kind based on the text object kind
+            let visualKind = 
+                match textObjectKind with
+                | TextObjectKind.None -> visualKind
+                | TextObjectKind.AlwaysCharacter -> VisualKind.Character
+                | TextObjectKind.AlwaysLine -> VisualKind.Line
+                | TextObjectKind.LineToCharacter ->
+                    if motionResult.OperationKind = OperationKind.LineWise then
+                        VisualKind.Line
+                    else
+                        VisualKind.Character
+
+            // Create the visual selection from the motion result
+            let visualSpan = 
+                match visualKind with
+                | VisualKind.Character -> 
+                    VisualSpan.Character (CharacterSpan(motionResult.Span))
+                | VisualKind.Line -> 
+                    let lineRange = SnapshotLineRangeUtil.CreateForSpan motionResult.Span
+                    VisualSpan.Line lineRange
+                | VisualKind.Block -> 
+                    // Block mode not typically used for text objects, default to character
+                    VisualSpan.Character (CharacterSpan(motionResult.Span))
+
+            let visualSelection = VisualSelection.CreateForward visualSpan
+            x.SwitchModeVisualOrSelect SelectModeOptions.Command visualSelection None
 
     /// Get the appropriate visual or select mode kind for the specified
     /// select mode options and visual kind

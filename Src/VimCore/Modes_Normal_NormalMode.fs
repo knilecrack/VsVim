@@ -286,6 +286,7 @@ type internal NormalMode
             |> Seq.append complexSeq
             |> Seq.append (factory.CreateMovementCommands())
             |> Seq.append (factory.CreateScrollCommands())
+            |> Seq.append (factory.CreateVisualTextObjectCommands())
             |> Seq.iter _runner.Add
 
             // Add in the special ~ command
