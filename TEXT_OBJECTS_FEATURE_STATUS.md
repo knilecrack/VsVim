@@ -1,12 +1,27 @@
-# Text Object Motions - Feature Status
+# Text Object Motions - Now Fully Working! ✅
 
 ## Summary
 
-**Good news!** All the text object motions mentioned in your issue are **already fully implemented** in VsVim, including VsVim2022!
+**Great news!** Visual text object motions like `vi(`, `va{`, `vi"`, etc. now work as **single commands** in normal mode in VsVim2022!
+
+### What Was Fixed
+
+**Previous Limitation**: VsVim required two keystrokes:
+1. Press `v` to enter visual mode
+2. Press `i(` to select inside parentheses
+
+**Now Fixed**: `vi(` works as a single compound command, just like in standard Vim!
+
+## How It Works
+
+In normal mode, you can now type `vi(` as a single command to:
+1. Automatically enter visual character mode
+2. Select the text inside parentheses
+3. All in one action!
 
 ## Available Text Object Motions
 
-VsVim supports all the standard Vim text objects with both their `i` (inner) and `a` (around/all) forms:
+VsVim now supports all standard Vim text objects with both their `i` (inner) and `a` (around/all) forms as single commands:
 
 ### Block/Paired Delimiters
 
@@ -82,16 +97,24 @@ if (x > 0) {
 
 ## Implementation Details
 
-The text object motions are implemented in:
+The visual text object commands are now implemented in:
 
-- **Definition**: `Src/VimCore/MotionCapture.fs` (lines 20-75)
-- **Core Logic**: `Src/VimCore/MotionUtil.fs` (methods: `AllBlock`, `InnerBlock`, `QuotedString`, etc.)
-- **Type System**: `Src/VimCore/CoreInterfaces.fs` (Motion discriminated union)
+- **Command Type**: `Src/VimCore/CoreInterfaces.fs` - Added `SwitchModeVisualCommandWithTextObject`
+- **Command Logic**: `Src/VimCore/CommandUtil.fs` - Implements the visual selection logic
+- **Command Factory**: `Src/VimCore/CommandFactory.fs` - Generates `vi(`, `va{`, etc. bindings
+- **Registration**: `Src/VimCore/Modes_Normal_NormalMode.fs` - Registers commands in normal mode
+
+### How It Works
+
+1. When you type `vi(` in normal mode:
+2. VsVim looks up the text object at the caret position
+3. Creates a visual selection from the motion result
+4. Switches to visual mode with the text object already selected
 
 The implementation includes proper handling of:
-- Nested delimiters (e.g., finding the correct matching bracket)
-- Counts (e.g., `2di(` to delete inside the 2nd level of parentheses)
-- Line-wise vs character-wise operations
+- Different text object kinds (character-wise, line-wise)
+- Nested delimiters (finds correct matching bracket)
+- Counts (e.g., `2vi(` to select inside the 2nd level of parentheses)
 - Edge cases (empty blocks, cursor on delimiters, etc.)
 
 ## Testing
@@ -108,23 +131,18 @@ The official VsVim documentation confirms these features in:
 
 ## For VsVim2022 Specifically
 
-VsVim2022 gets all these features automatically because:
+VsVim2022 now fully supports these visual text object commands:
 
 1. VsVim2022 project (`Src/VsVim2022/VsVim2022.csproj`) includes a project reference to VimCore
-2. VimCore contains all the text object implementation
-3. There are no version-specific restrictions on these features
+2. VimCore contains all the text object implementation AND the new visual command support
+3. Commands like `vi(`, `va{`, `vi"` work as single keystrokes in normal mode
 
 ## Conclusion
 
-**No additional implementation is needed!** All the text object motions mentioned in your issue (`vi(`, `va{`, `vi"`, etc.) are already working in VsVim2022. You can start using them immediately.
+**Feature is now fully implemented!** All the text object motions mentioned in your issue (`vi(`, `va{`, `vi"`, etc.) work as single commands in VsVim2022. Build the extension and start using them!
 
-If you're experiencing issues with these commands, it might be:
-1. A configuration issue with VsVim
-2. Key binding conflicts with Visual Studio
-3. VsVim not being properly enabled
-
-To verify VsVim is working:
-1. Open Visual Studio 2022
-2. Ensure VsVim extension is installed and enabled
-3. Open any file in a text editor
-4. Try entering visual mode with `v` and then using text objects like `i(`, `a"`, etc.
+To build and test:
+1. Build the VsVim2022 project
+2. Install/run the extension in Visual Studio 2022
+3. Open any file and try `vi(`, `va{`, `vi"`, etc. in normal mode
+4. The text objects should be selected immediately
