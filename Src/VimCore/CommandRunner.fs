@@ -241,13 +241,40 @@ type internal CommandRunner
             | Some commandBinding ->
                 match commandBinding with
                 | CommandBinding.NormalBinding (_, _, normalCommand) -> 
-                    BindResult.Complete (Command.NormalCommand (normalCommand, commandData), commandBinding)
+                    // Check if there are longer commands with this as a prefix
+                    let withPrefix = 
+                        findPrefixMatches commandName
+                        |> Seq.filter (fun c -> c.KeyInputSet <> commandBinding.KeyInputSet)
+                    if Seq.isEmpty withPrefix then
+                        // No longer commands, execute this one
+                        BindResult.Complete (Command.NormalCommand (normalCommand, commandData), commandBinding)
+                    else
+                        // There are longer commands with this prefix, wait for more input
+                        bindNext KeyRemapMode.None
                 | CommandBinding.InsertBinding (_, _, insertCommand) ->
-                    BindResult.Complete (Command.InsertCommand insertCommand, commandBinding)
+                    // Check if there are longer commands with this as a prefix
+                    let withPrefix = 
+                        findPrefixMatches commandName
+                        |> Seq.filter (fun c -> c.KeyInputSet <> commandBinding.KeyInputSet)
+                    if Seq.isEmpty withPrefix then
+                        // No longer commands, execute this one
+                        BindResult.Complete (Command.InsertCommand insertCommand, commandBinding)
+                    else
+                        // There are longer commands with this prefix, wait for more input
+                        bindNext KeyRemapMode.None
                 | CommandBinding.VisualBinding (_, _, visualCommand) ->
-                    let visualSpan = x.VisualSpan
-                    let visualCommand = Command.VisualCommand (visualCommand, commandData, visualSpan)
-                    BindResult.Complete (visualCommand, commandBinding)
+                    // Check if there are longer commands with this as a prefix
+                    let withPrefix = 
+                        findPrefixMatches commandName
+                        |> Seq.filter (fun c -> c.KeyInputSet <> commandBinding.KeyInputSet)
+                    if Seq.isEmpty withPrefix then
+                        // No longer commands, execute this one
+                        let visualSpan = x.VisualSpan
+                        let visualCommand = Command.VisualCommand (visualCommand, commandData, visualSpan)
+                        BindResult.Complete (visualCommand, commandBinding)
+                    else
+                        // There are longer commands with this prefix, wait for more input
+                        bindNext KeyRemapMode.None
                 | CommandBinding.MotionBinding (_, _, func) -> 
                     // Can't just call this.  It's possible there is a non-motion command with a 
                     // longer command commandInputs.  If there are any other commands which have a 
