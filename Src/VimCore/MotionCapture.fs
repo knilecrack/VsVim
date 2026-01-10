@@ -219,31 +219,37 @@ type internal MotionCapture
                 let name = KeyNotationUtil.StringToKeyInputSet str 
                 MotionBinding.Dynamic (name, flags, bindDataStorage))
 
-    /// Get the Motion value for the given KeyInput.  Will return a BindResult<Motion> which 
-    /// digs through the values until a valid Motion result is detected 
-    let rec GetMotionCore motionBindingsMap keyInput = 
+    /// Get the Motion value for the given KeyInput.  Will return a BindResult<Motion> which
+    /// digs through the values until a valid Motion result is detected
+    let rec GetMotionCore motionBindingsMap keyInput =
         let rec inner (previousName: KeyInputSet) keyInput =
-            if keyInput = KeyInputUtil.EscapeKey then 
+            if keyInput = KeyInputUtil.EscapeKey then
                 // User hit escape so abandon the motion
-                BindResult.Cancelled 
+                BindResult.Cancelled
             else
                 let name = previousName.Add keyInput
+
+                // Debug: Log motion lookup
+                System.Diagnostics.Debug.WriteLine(sprintf "MotionCapture: Looking up motion '%s' (KeyInput char='%c' key=%A)" name.Name keyInput.Char keyInput.Key)
+
                 match Map.tryFind name motionBindingsMap with
                 | Some command ->
-                    match command with 
-                    | MotionBinding.Static (_, _ , motion) -> 
-                        // Simple motions don't need any extra information so we can 
+                    System.Diagnostics.Debug.WriteLine(sprintf "MotionCapture: FOUND motion '%s'" name.Name)
+                    match command with
+                    | MotionBinding.Static (_, _ , motion) ->
+                        // Simple motions don't need any extra information so we can
                         // return them directly
                         BindResult.Complete motion
-                    | MotionBinding.Dynamic (_, _, bindDataStorage) -> 
+                    | MotionBinding.Dynamic (_, _, bindDataStorage) ->
                         // Complex motions need further input so delegate off
                         let bindData = bindDataStorage.CreateBindData()
                         BindResult.NeedMoreInput bindData
-                | None -> 
-                    let res = motionBindingsMap |> Seq.filter (fun pair -> pair.Key.StartsWith name) 
-                    if Seq.isEmpty res then 
+                | None ->
+                    let res = motionBindingsMap |> Seq.filter (fun pair -> pair.Key.StartsWith name) |> Seq.toList
+                    System.Diagnostics.Debug.WriteLine(sprintf "MotionCapture: Motion '%s' NOT FOUND, prefix matches: %A" name.Name (res |> List.map (fun p -> p.Key.Name)))
+                    if List.isEmpty res then
                         BindResult.Error
-                    else 
+                    else
                         let bindData = { KeyRemapMode = KeyRemapMode.None; BindFunction = inner name }
                         BindResult.NeedMoreInput bindData
         inner KeyInputSet.Empty keyInput
@@ -274,11 +280,20 @@ type internal MotionCapture
         Seq.append SharedMotions (Seq.append ComplexMotions RecursiveMotions)
         |> List.ofSeq
 
-    let MotionBindingsMap = 
-        MotionBindings
-        |> Seq.ofList
-        |> Seq.map (fun binding ->  (binding.KeyInputSet, binding))
-        |> Map.ofSeq
+    let MotionBindingsMap =
+        let map =
+            MotionBindings
+            |> Seq.ofList
+            |> Seq.map (fun binding -> (binding.KeyInputSet, binding))
+            |> Map.ofSeq
+
+        // Debug: Log motions starting with 'i'
+        map
+        |> Map.toSeq
+        |> Seq.filter (fun (k, _) -> k.Name.StartsWith("i"))
+        |> Seq.iter (fun (k, _) -> System.Diagnostics.Debug.WriteLine(sprintf "MotionBindingsMap: Registered motion '%s'" k.Name))
+
+        map
 
     /// Get the Motion value for the given KeyInput.  Will return a BindResult<Motion> which 
     /// digs through the values until a valid Motion result is detected 

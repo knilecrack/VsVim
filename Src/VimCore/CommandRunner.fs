@@ -237,14 +237,22 @@ type internal CommandRunner
                     inner commandName previousCommandName keyInput
                 BindResult.NeedMoreInput { KeyRemapMode = keyRemapMode; BindFunction = inner }
 
+            // Debug: Log the command being looked up
+            System.Diagnostics.Debug.WriteLine(sprintf "CommandRunner: Looking up command '%s'" commandName.Name)
+
             match Map.tryFind commandName _commandMap with
             | Some commandBinding ->
                 match commandBinding with
-                | CommandBinding.NormalBinding (_, _, normalCommand) -> 
+                | CommandBinding.NormalBinding (_, _, normalCommand) ->
                     // Check if there are longer commands with this as a prefix
-                    let withPrefix = 
+                    let withPrefix =
                         findPrefixMatches commandName
                         |> Seq.filter (fun c -> c.KeyInputSet <> commandBinding.KeyInputSet)
+
+                    // Debug: Log prefix matches
+                    let prefixList = withPrefix |> Seq.map (fun c -> c.KeyInputSet.Name) |> Seq.toList
+                    System.Diagnostics.Debug.WriteLine(sprintf "CommandRunner: Found command '%s', prefix matches: %A" commandName.Name prefixList)
+
                     if Seq.isEmpty withPrefix then
                         // No longer commands, execute this one
                         BindResult.Complete (Command.NormalCommand (normalCommand, commandData), commandBinding)
@@ -308,7 +316,12 @@ type internal CommandRunner
                         BindResult.Complete (visualCommand, commandBinding))
                     BindResult.NeedMoreInput bindData
             | None ->
-                let hasPrefixMatch = findPrefixMatches commandName |> SeqUtil.isNotEmpty
+                let prefixMatches = findPrefixMatches commandName |> Seq.toList
+                let hasPrefixMatch = not prefixMatches.IsEmpty
+
+                // Debug: Log when command not found
+                System.Diagnostics.Debug.WriteLine(sprintf "CommandRunner: Command '%s' NOT FOUND, prefix matches: %A" commandName.Name (prefixMatches |> List.map (fun c -> c.KeyInputSet.Name)))
+
                 if commandName.KeyInputs.Length > 1 && not hasPrefixMatch then
     
                     // It's possible to have 2 commands with similar prefixes where one of them is a 
@@ -408,9 +421,13 @@ type internal CommandRunner
                 _runBindData <- Some bindData
                 BindResult.NeedMoreInput { KeyRemapMode = bindData.KeyRemapMode; BindFunction = x.Run }
             
-    member x.Add (command: CommandBinding) = 
-        if Map.containsKey command.KeyInputSet _commandMap then 
+    member x.Add (command: CommandBinding) =
+        if Map.containsKey command.KeyInputSet _commandMap then
             invalidArg "command" Resources.CommandRunner_CommandNameAlreadyAdded
+        // Debug: Log when vi( or vi{ commands are added
+        let name = command.KeyInputSet.Name
+        if name.StartsWith("vi") then
+            System.Diagnostics.Debug.WriteLine(sprintf "CommandRunner.Add: Adding command '%s'" name)
         _commandMap <- Map.add command.KeyInputSet command _commandMap
     member x.Remove (name:KeyInputSet) = _commandMap <- Map.remove name _commandMap
     member x.ResetState () =
