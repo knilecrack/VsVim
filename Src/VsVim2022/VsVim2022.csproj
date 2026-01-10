@@ -21,6 +21,7 @@
 
     <!-- Temporary fix for https://github.com/dotnet/sdk/issues/34438 -->
     <EmbedUntrackedSources>false</EmbedUntrackedSources>
+    <CreateVsixContainer>True</CreateVsixContainer>
   </PropertyGroup>
 
   <ItemGroup>
@@ -78,6 +79,19 @@
       <IncludeOutputGroupsInVSIXLocalOnly>DebugSymbolsProjectOutputGroup%3b</IncludeOutputGroupsInVSIXLocalOnly>
       <ForceIncludeInVSIX>true</ForceIncludeInVSIX>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Update="Properties\Settings.Designer.cs">
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
   </ItemGroup>
   <Import Project="..\VsVimShared\VsVimShared.projitems" Label="Shared" />
   <Import Project="..\VimWpf\VimWpf.projitems" Label="Shared" />

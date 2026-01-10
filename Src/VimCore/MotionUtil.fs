@@ -574,7 +574,15 @@ type internal BlockUtil() =
             if not (SnapshotPointUtil.IsEndPoint contextPoint) && isChar startChar contextPoint then
                 SnapshotPointUtil.AddOneOrCurrent contextPoint
             else
-                contextPoint
+                //contextPoint
+             let firstStartChar = 
+                SnapshotPointUtil.GetContainingLine contextPoint
+                     |> SnapshotLineUtil.GetExtent
+                     |> SnapshotSpanUtil.GetPoints SearchPath.Forward
+                     |> Seq.tryFind (isChar startChar)
+             match firstStartChar with 
+             | Some startPoint when contextPoint.Position < startPoint.Position -> SnapshotPointUtil.AddOneOrCurrent startPoint | _ -> contextPoint 
+
 
         // We now have to decide whether we are searching inside string
         // literals or outside of them.  As a special case, if we are inside a
