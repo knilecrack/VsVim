@@ -91,6 +91,25 @@ type internal NormalMode
                 yield ("U", CommandFlags.Special, NormalCommand.UndoLine)
                 yield ("v", CommandFlags.Special, NormalCommand.SwitchModeVisualCommand VisualKind.Character)
                 yield ("V", CommandFlags.Special, NormalCommand.SwitchModeVisualCommand VisualKind.Line)
+                
+                // Visual text object commands for parentheses
+                yield ("vi(", CommandFlags.Special, NormalCommand.SwitchModeVisualCommandWithTextObject (VisualKind.Character, Motion.InnerBlock BlockKind.Paren, TextObjectKind.AlwaysCharacter))
+                yield ("vi)", CommandFlags.Special, NormalCommand.SwitchModeVisualCommandWithTextObject (VisualKind.Character, Motion.InnerBlock BlockKind.Paren, TextObjectKind.AlwaysCharacter))
+                yield ("va(", CommandFlags.Special, NormalCommand.SwitchModeVisualCommandWithTextObject (VisualKind.Character, Motion.AllBlock BlockKind.Paren, TextObjectKind.AlwaysCharacter))
+                yield ("va)", CommandFlags.Special, NormalCommand.SwitchModeVisualCommandWithTextObject (VisualKind.Character, Motion.AllBlock BlockKind.Paren, TextObjectKind.AlwaysCharacter))
+                
+                // Visual text object commands for brackets  
+                yield ("vi[", CommandFlags.Special, NormalCommand.SwitchModeVisualCommandWithTextObject (VisualKind.Character, Motion.InnerBlock BlockKind.Bracket, TextObjectKind.AlwaysCharacter))
+                yield ("vi]", CommandFlags.Special, NormalCommand.SwitchModeVisualCommandWithTextObject (VisualKind.Character, Motion.InnerBlock BlockKind.Bracket, TextObjectKind.AlwaysCharacter))
+                yield ("va[", CommandFlags.Special, NormalCommand.SwitchModeVisualCommandWithTextObject (VisualKind.Character, Motion.AllBlock BlockKind.Bracket, TextObjectKind.AlwaysCharacter))
+                yield ("va]", CommandFlags.Special, NormalCommand.SwitchModeVisualCommandWithTextObject (VisualKind.Character, Motion.AllBlock BlockKind.Bracket, TextObjectKind.AlwaysCharacter))
+                
+                // Visual text object commands for braces
+                yield ("vi{", CommandFlags.Special, NormalCommand.SwitchModeVisualCommandWithTextObject (VisualKind.Character, Motion.InnerBlock BlockKind.CurlyBracket, TextObjectKind.AlwaysCharacter))
+                yield ("vi}", CommandFlags.Special, NormalCommand.SwitchModeVisualCommandWithTextObject (VisualKind.Character, Motion.InnerBlock BlockKind.CurlyBracket, TextObjectKind.AlwaysCharacter))
+                yield ("va{", CommandFlags.Special, NormalCommand.SwitchModeVisualCommandWithTextObject (VisualKind.Character, Motion.AllBlock BlockKind.CurlyBracket, TextObjectKind.AlwaysCharacter))
+                yield ("va}", CommandFlags.Special, NormalCommand.SwitchModeVisualCommandWithTextObject (VisualKind.Character, Motion.AllBlock BlockKind.CurlyBracket, TextObjectKind.AlwaysCharacter))
+                
                 yield ("x", CommandFlags.Repeatable, NormalCommand.DeleteCharacterAtCaret)
                 yield ("X", CommandFlags.Repeatable, NormalCommand.DeleteCharacterBeforeCaret)
                 yield ("Y", CommandFlags.None, NormalCommand.YankLines)
