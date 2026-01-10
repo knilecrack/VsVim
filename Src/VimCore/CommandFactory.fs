@@ -182,6 +182,10 @@ type internal CommandFactory
                     let newKeys = vKey :: originalKeys
                     let viName = KeyInputSet(newKeys)
                     let vaCommand = NormalCommand.SwitchModeVisualCommandWithTextObject (VisualKind.Character, motion, textObjectKind)
+                    
+                    // Debug: Log the command being created
+                    System.Diagnostics.Debug.WriteLine(sprintf "CreateVisualTextObjectCommands: Creating '%s' -> %A" (viName.ToString()) motion)
+                    
                     Some (CommandBinding.NormalBinding(viName, CommandFlags.Special, vaCommand))
                 else
                     None
@@ -189,10 +193,16 @@ type internal CommandFactory
                 // Skip dynamic bindings for now (like marks)
                 None
 
-        _capture.MotionBindings
-        |> Seq.filter (fun binding -> Util.IsFlagSet binding.MotionFlags MotionFlags.TextObject)
-        |> Seq.choose processMotionBinding
-        |> List.ofSeq
+        let commands = 
+            _capture.MotionBindings
+            |> Seq.filter (fun binding -> Util.IsFlagSet binding.MotionFlags MotionFlags.TextObject)
+            |> Seq.choose processMotionBinding
+            |> List.ofSeq
+            
+        // Debug: Log total number of visual text object commands created
+        System.Diagnostics.Debug.WriteLine(sprintf "CreateVisualTextObjectCommands: Created %d commands total" commands.Length)
+        
+        commands
 
     member x.CreateMovementCommands() =
         let standard = SharedStandardMovementBindings
