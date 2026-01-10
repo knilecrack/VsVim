@@ -14,6 +14,9 @@ type internal CommandFactory =
     /// motion
     member CreateMovementTextObjectCommands: unit -> CommandBinding list
 
+    /// Returns the set of commands for switching to visual mode with text objects (vi(, va{, etc.)
+    member CreateVisualTextObjectCommands: unit -> CommandBinding list
+
     /// Returns the set of commands which move the caret as a scroll operation
     member CreateScrollCommands: unit -> CommandBinding list
 

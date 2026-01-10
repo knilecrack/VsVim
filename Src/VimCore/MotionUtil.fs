@@ -623,11 +623,24 @@ type internal BlockUtil() =
             }
 
         // Search backward for the character that starts this block.
-        let startPoint =
+        let startPointBackward =
             SnapshotSpan(SnapshotUtil.GetStartPoint referencePoint.Snapshot, referencePoint)
             |> SnapshotSpanUtil.GetPoints SearchPath.Backward
             |> filterToContext
             |> SeqUtil.tryFind 1 (findMatched endChar startChar)
+
+        // If backward search didn't find a start character, search forward on the
+        // current line for the next opening character (matching vim behavior for
+        // text objects like vi( when cursor is before the opening paren)
+        let startPoint =
+            match startPointBackward with
+            | Some _ -> startPointBackward
+            | None ->
+                let line = SnapshotPointUtil.GetContainingLine referencePoint
+                SnapshotSpan(referencePoint, line.End)
+                |> SnapshotSpanUtil.GetPoints SearchPath.Forward
+                |> filterToContext
+                |> Seq.tryFind (isChar startChar)
 
         // Then search forward for the character that ends this block.
         let endPoint =

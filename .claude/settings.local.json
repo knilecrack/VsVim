@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build:*)",
+      "Bash(powershell -ExecutionPolicy ByPass -NoProfile -command \"& Scripts\\\\Build.ps1 -test\")"
+    ]
+  }
+}

@@ -3227,6 +3227,9 @@ type NormalCommand =
     /// Switch to the specified kind of visual mode
     | SwitchModeVisualCommand of VisualKind: VisualKind
 
+    /// Switch to visual mode and select a text object
+    | SwitchModeVisualCommandWithTextObject of VisualKind: VisualKind * Motion: Motion * TextObjectKind: TextObjectKind
+
     /// Switch to the previous Visual Mode selection
     | SwitchPreviousVisualMode
 
@@ -3363,6 +3366,7 @@ type NormalCommand =
         | NormalCommand.SubtractFromWord -> None
         | NormalCommand.SwitchMode _ -> None
         | NormalCommand.SwitchModeVisualCommand _ -> None
+        | NormalCommand.SwitchModeVisualCommandWithTextObject _ -> None
         | NormalCommand.SwitchPreviousVisualMode -> None
         | NormalCommand.SwitchToSelection _ -> None
         | NormalCommand.WriteBufferAndQuit -> None
