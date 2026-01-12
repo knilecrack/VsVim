@@ -24,8 +24,8 @@ using EnvDTE80;
 using System.Windows.Threading;
 using System.Diagnostics;
 using Vim.Interpreter;
-using Microsoft.VisualStudio.Platform.WindowManagement;
 using Microsoft.VisualStudio.PlatformUI.Shell;
+using Microsoft.VisualStudio.Platform.WindowManagement;
 
 namespace Vim.VisualStudio
 {
@@ -244,6 +244,8 @@ namespace Vim.VisualStudio
         internal const VisualStudioVersion VisualStudioVersion = global::Vim.VisualStudio.VisualStudioVersion.Vs2019;
 #elif VS_SPECIFIC_2022
         internal const VisualStudioVersion VisualStudioVersion = global::Vim.VisualStudio.VisualStudioVersion.Vs2022;
+#elif VS_SPECIFIC_2026
+        internal const VisualStudioVersion VisualStudioVersion = global::Vim.VisualStudio.VisualStudioVersion.Vs2026;
 #else
 #error Unsupported configuration
 #endif
@@ -744,7 +746,7 @@ namespace Vim.VisualStudio
             return windowFrameState.ActiveWindowFrameIndex;
         }
 
-#if VS_SPECIFIC_2019 || VS_SPECIFIC_2022
+#if VS_SPECIFIC_2019 || VS_SPECIFIC_2022 || VS_SPECIFIC_2026
 
         /// <summary>
         /// Get the state of the active tab group in Visual Studio

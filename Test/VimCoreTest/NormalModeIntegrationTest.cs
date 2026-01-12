@@ -708,7 +708,7 @@ namespace Vim.UnitTest
                 Assert.Equal(_textBuffer.GetLine(2).Start, _textView.GetCaretPoint());
             }
 
-#if !VS_SPECIFIC_2022 // https://github.com/VsVim/VsVim/issues/2916
+#if !VS_SPECIFIC_2022 && !VS_SPECIFIC_2026 // https://github.com/VsVim/VsVim/issues/2916
             /// <summary>
             /// When moving a line down over a fold it should not be expanded and the entire fold
             /// should count as a single line
@@ -780,7 +780,7 @@ namespace Vim.UnitTest
                 Assert.Equal(_textBuffer.GetPointInLine(line: 2, column: 0), _textView.GetCaretPoint());
             }
 
-#if !VS_SPECIFIC_2022 // https://github.com/VsVim/VsVim/issues/2916
+#if !VS_SPECIFIC_2022 && !VS_SPECIFIC_2026 // https://github.com/VsVim/VsVim/issues/2916
             [WpfFact]
             public void MoveOverFold()
             {
@@ -826,7 +826,7 @@ namespace Vim.UnitTest
                 Assert.Equal(_textBuffer.GetLine(0).Start, _textView.GetCaretPoint());
             }
 
-#if !VS_SPECIFIC_2022 // https://github.com/VsVim/VsVim/issues/2916
+#if !VS_SPECIFIC_2022 && !VS_SPECIFIC_2026 // https://github.com/VsVim/VsVim/issues/2916
             /// <summary>
             /// Have to make sure that 'j' correctly maintains caret column when stepping 
             /// over collapsed regions.  
@@ -5117,7 +5117,7 @@ namespace Vim.UnitTest
                 Assert.Equal("dog", _textBuffer.GetLine(2).ExtentIncludingLineBreak.GetText());
             }
 
-#if !VS_SPECIFIC_2022 // https://github.com/VsVim/VsVim/issues/2916
+#if !VS_SPECIFIC_2022 && !VS_SPECIFIC_2026 // https://github.com/VsVim/VsVim/issues/2916
             /// <summary>
             /// An 'o' command which starts on a folded line should insert the line after the fold
             /// </summary>
@@ -7158,7 +7158,7 @@ namespace Vim.UnitTest
                 Assert.Equal("d", RegisterMap.GetRegister(RegisterName.SmallDelete).StringValue);
             }
 
-#if !VS_SPECIFIC_2022 // https://github.com/VsVim/VsVim/issues/2916
+#if !VS_SPECIFIC_2022 && !VS_SPECIFIC_2026 // https://github.com/VsVim/VsVim/issues/2916
             [WpfFact]
             public void Issue1436()
             {

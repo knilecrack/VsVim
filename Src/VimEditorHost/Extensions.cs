@@ -1374,7 +1374,7 @@ namespace Vim.EditorHost
 
         public static void ForceLayout(this IWpfTextView wpfTextView)
         {
-#if VS_SPECIFIC_2022
+#if VS_SPECIFIC_2022 || VS_SPECIFIC_2026
             var method = wpfTextView
                 .GetType()
                 .GetMethods(BindingFlags.NonPublic | BindingFlags.Instance)

@@ -136,7 +136,7 @@ namespace Vim.UnitTest
                     AssertFirstLine(5);
                 }
 
-#if !VS_SPECIFIC_2022 // https://github.com/VsVim/VsVim/issues/2916
+#if !VS_SPECIFIC_2022 && !VS_SPECIFIC_2026 // https://github.com/VsVim/VsVim/issues/2916
                 /// <summary>
                 /// Folded text should count as a single line 
                 /// </summary>
@@ -204,7 +204,7 @@ namespace Vim.UnitTest
                     AssertLastLine(_lastLineNumber);
                 }
 
-#if !VS_SPECIFIC_2022 // https://github.com/VsVim/VsVim/issues/2916
+#if !VS_SPECIFIC_2022 && !VS_SPECIFIC_2026 // https://github.com/VsVim/VsVim/issues/2916
                 [WpfFact]
                 public void OverFold()
                 {

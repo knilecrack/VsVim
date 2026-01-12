@@ -1,9 +1,8 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
     <Metadata>
-        <!-- DEV17_TODO -->
-        <Identity Publisher="Jared Parsons" Version="2.11.0.1" Id="VsVim.Microsoft.e97cd707-324b-4e35-a669-eef8dae4b8cf" Language="en-US" />
-        <DisplayName>VsVim 2022</DisplayName>
+        <Identity Publisher="Jared Parsons" Version="2.10.0.6" Id="VsVim.Microsoft.e97cd707-324b-4e35-a669-eef8dae4b8d0" Language="en-US" />
+        <DisplayName>VsVim 2026</DisplayName>
         <Description xml:space="preserve">VIM emulation layer for Visual Studio</Description>
         <MoreInfo>https://github.com/VsVim/VsVim</MoreInfo>
         <License>License.txt</License>
@@ -13,31 +12,31 @@
         <Preview>true</Preview>
     </Metadata>
     <Installation>
-        <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[17.0,19.0)">
+        <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[18.0,20.0)">
             <ProductArchitecture>amd64</ProductArchitecture>
         </InstallationTarget>
-        <InstallationTarget Version="[17.0,19.0)" Id="Microsoft.VisualStudio.IntegratedShell">
+        <InstallationTarget Version="[18.0,20.0)" Id="Microsoft.VisualStudio.IntegratedShell">
             <ProductArchitecture>amd64</ProductArchitecture>
         </InstallationTarget>
-        <InstallationTarget Version="[17.0,19.0)" Id="Microsoft.VisualStudio.Pro">
+        <InstallationTarget Version="[18.0,20.0)" Id="Microsoft.VisualStudio.Pro">
             <ProductArchitecture>amd64</ProductArchitecture>
         </InstallationTarget>
-        <InstallationTarget Version="[17.0,19.0)" Id="Microsoft.VisualStudio.Enterprise">
+        <InstallationTarget Version="[18.0,20.0)" Id="Microsoft.VisualStudio.Enterprise">
             <ProductArchitecture>amd64</ProductArchitecture>
         </InstallationTarget>
-        <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[17.0,19.0)">
+        <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[18.0,20.0)">
             <ProductArchitecture>arm64</ProductArchitecture>
         </InstallationTarget>
-        <InstallationTarget Version="[17.0,19.0)" Id="Microsoft.VisualStudio.IntegratedShell">
+        <InstallationTarget Version="[18.0,20.0)" Id="Microsoft.VisualStudio.IntegratedShell">
             <ProductArchitecture>arm64</ProductArchitecture>
         </InstallationTarget>
-        <InstallationTarget Version="[17.0,19.0)" Id="Microsoft.VisualStudio.Pro">
+        <InstallationTarget Version="[18.0,20.0)" Id="Microsoft.VisualStudio.Pro">
             <ProductArchitecture>arm64</ProductArchitecture>
         </InstallationTarget>
-        <InstallationTarget Version="[17.0,19.0)" Id="Microsoft.VisualStudio.Enterprise">
+        <InstallationTarget Version="[18.0,20.0)" Id="Microsoft.VisualStudio.Enterprise">
             <ProductArchitecture>arm64</ProductArchitecture>
         </InstallationTarget>
-        <InstallationTarget Id="Microsoft.VisualStudio.Ssms" Version="[17.0,)">
+        <InstallationTarget Id="Microsoft.VisualStudio.Ssms" Version="[18.0,)">
             <ProductArchitecture>amd64</ProductArchitecture>
         </InstallationTarget>
     </Installation>
@@ -48,7 +47,6 @@
         <Asset Type="Microsoft.VisualStudio.VsPackage" d:Source="File" Path="Colors.pkgdef" />
     </Assets>
     <Prerequisites>
-        <Prerequisite Id="Microsoft.VisualStudio.Component.CoreEditor" Version="[17.0,19.0)" DisplayName="Visual Studio core editor" />
+        <Prerequisite Id="Microsoft.VisualStudio.Component.CoreEditor" Version="[18.0,20.0)" DisplayName="Visual Studio core editor" />
     </Prerequisites>
 </PackageManifest>
-

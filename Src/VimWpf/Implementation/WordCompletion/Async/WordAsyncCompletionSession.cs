@@ -5,7 +5,7 @@ using Microsoft.VisualStudio.Utilities;
 using Vim;
 using System.Threading;
 using System.Windows.Threading;
-#if VS_SPECIFIC_2019 || VS_SPECIFIC_2022
+#if VS_SPECIFIC_2019 || VS_SPECIFIC_2022 || VS_SPECIFIC_2026 || VS_SPECIFIC_2026
 using Microsoft.VisualStudio.TextManager.Interop;
 using Microsoft.VisualStudio.Editor;
 #endif
@@ -14,7 +14,7 @@ using System.Reflection;
 namespace Vim.UI.Wpf.Implementation.WordCompletion.Async
 {
     /// <summary>
-    /// Implementation of the IWordCompletionSession interface.  
+    /// Implementation of the IWordCompletionSession interface.
     /// to provide the friendly interface the core Vim engine is expecting
     /// </summary>
     internal sealed class WordAsyncCompletionSession : IWordCompletionSession
@@ -24,7 +24,7 @@ namespace Vim.UI.Wpf.Implementation.WordCompletion.Async
         private bool _isDismissed;
         private event EventHandler _dismissed;
         private readonly DispatcherTimer _tipTimer;
-#if VS_SPECIFIC_2019 || VS_SPECIFIC_2022
+#if VS_SPECIFIC_2019 || VS_SPECIFIC_2022 || VS_SPECIFIC_2026
         private readonly IVsTextView _vsTextView;
 
         internal WordAsyncCompletionSession(IAsyncCompletionSession asyncCompletionSession, IVsEditorAdaptersFactoryService vsEditorAdaptersFactoryService = null)
@@ -84,7 +84,7 @@ namespace Vim.UI.Wpf.Implementation.WordCompletion.Async
         {
             try
             {
-#if VS_SPECIFIC_2019 || VS_SPECIFIC_2022
+#if VS_SPECIFIC_2019 || VS_SPECIFIC_2022 || VS_SPECIFIC_2026
 
                 var methodInfo = _vsTextView.GetType().BaseType.GetMethod(
                     "SetTipOpacity",

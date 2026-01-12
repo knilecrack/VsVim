@@ -15,7 +15,11 @@
     Project="$(MSBuildThisFileDirectory)References\Vs2019\Vs2019.Build.targets"
     Condition="'$(VsVimVisualStudioTargetVersion)' == '16.0' AND '$(VsVimProjectType)' != ''" />
 
-  <Import 
+  <Import
     Project="$(MSBuildThisFileDirectory)References\Vs2022\Vs2022.Build.targets"
     Condition="'$(VsVimVisualStudioTargetVersion)' == '17.0' AND '$(VsVimProjectType)' != ''" />
+
+  <Import
+    Project="$(MSBuildThisFileDirectory)References\Vs2026\Vs2026.Build.targets"
+    Condition="'$(VsVimVisualStudioTargetVersion)' == '18.0' AND '$(VsVimProjectType)' != ''" />
 </Project>

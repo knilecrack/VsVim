@@ -99,7 +99,7 @@ namespace Vim.VisualStudio.UnitTest
                 Assert.Equal(1, VimHost.BeepCount);
             }
 
-#if !VS_SPECIFIC_2022 // tab size difference
+#if !VS_SPECIFIC_2022 && !VS_SPECIFIC_2026 // tab size difference
             [WpfFact]
             public void IgnoreTab()
             {

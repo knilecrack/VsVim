@@ -35,8 +35,11 @@
 
   <PropertyGroup> 
     <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\Common</ReferencePath>
-    <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\Vs2019</ReferencePath>
-    <ReferencePath>$(ReferencePath);$(MSBuildThisFileDirectory)References\Vs2022</ReferencePath>
+    <!-- Only include Vs2019/Vs2022 references for non-VS2026 projects -->
+    <ReferencePath Condition="'$(VsVimVisualStudioTargetVersion)' != '18.0'">$(ReferencePath);$(MSBuildThisFileDirectory)References\Vs2019</ReferencePath>
+    <ReferencePath Condition="'$(VsVimVisualStudioTargetVersion)' != '18.0'">$(ReferencePath);$(MSBuildThisFileDirectory)References\Vs2022</ReferencePath>
+    <!-- Add Vs2026 references when targeting VS 18.0 -->
+    <ReferencePath Condition="'$(VsVimVisualStudioTargetVersion)' == '18.0'">$(ReferencePath);$(MSBuildThisFileDirectory)References\Vs2026</ReferencePath>
     <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">$(MSBuildThisFileDirectory)</SolutionDir>
 
     <!-- This controls the places MSBuild will consult to resolve assembly references.  This is 

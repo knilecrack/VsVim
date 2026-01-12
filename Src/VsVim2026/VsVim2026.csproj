@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <ProductVersion>10.0.20306</ProductVersion>
+    <ProductVersion>10.0.20305</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <OutputType>Library</OutputType>
     <RootNamespace>Vim.VisualStudio</RootNamespace>
@@ -12,11 +12,11 @@
     <StartArguments>/rootsuffix Exp</StartArguments>
     <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>
     <VsVimProjectType>Vsix</VsVimProjectType>
-    <VsVimVisualStudioTargetVersion>17.0</VsVimVisualStudioTargetVersion>
+    <VsVimVisualStudioTargetVersion>18.0</VsVimVisualStudioTargetVersion>
 
-    <DeployExtension Condition="'$(VisualStudioVersion)' != '17.0' OR '$(BuildingInsideVisualStudio)' != 'true'">False</DeployExtension>
+    <DeployExtension Condition="'$(VisualStudioVersion)' != '18.0' OR '$(BuildingInsideVisualStudio)' != 'true'">False</DeployExtension>
 
-    <!-- This is needed to prevent forced migrations when opening the project in Vs2017 -->
+    <!-- This is needed to prevent forced migrations when opening the project in older VS versions -->
     <MinimumVisualStudioVersion>15.0</MinimumVisualStudioVersion>
 
     <!-- Temporary fix for https://github.com/dotnet/sdk/issues/34438 -->
@@ -81,4 +81,13 @@
   </ItemGroup>
   <Import Project="..\VsVimShared\VsVimShared.projitems" Label="Shared" />
   <Import Project="..\VimWpf\VimWpf.projitems" Label="Shared" />
+  <ItemGroup>
+    <PackageReference Update="Microsoft.CodeAnalysis.CSharp.Scripting" Version="5.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Update="Microsoft.VSSDK.BuildTools" Version="17.14.2120">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
 </Project>
