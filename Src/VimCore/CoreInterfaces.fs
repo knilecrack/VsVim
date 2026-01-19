@@ -1,4 +1,4 @@
-﻿#light
+#light
 
 namespace Vim
 open Microsoft.VisualStudio.Text
@@ -5614,9 +5614,17 @@ and IVimTextBuffer =
     /// The end point of the last change or yank
     abstract LastChangeOrYankEnd: SnapshotPoint option with get, set
 
+    /// Raised when a yank completes. Span is in the current snapshot.
+    [<CLIEvent>]
+    abstract YankOccurred: IDelegateEvent<System.EventHandler<SnapshotSpanEventArgs>>
+
+    /// Raise the yank occurred event for a given span
+    abstract RaiseYankOccurred: SnapshotSpan -> unit
+
     /// If we are in the middle of processing a "one time command" (<c-o>) then this will
     /// hold the ModeKind which will be switched back to after it's completed
     abstract InOneTimeCommand: ModeKind option with get, set
+
     
     /// True if we are processing a "one time command" initiated from a select mode,
     /// or from a select mode initiated from within another "one time command", e.g. "(insert) SELECT".
@@ -5685,11 +5693,13 @@ and IVimTextBuffer =
     [<CLIEvent>]
     abstract SwitchedMode: IDelegateEvent<System.EventHandler<SwitchModeKindEventArgs>>
 
-    /// Raised when a mark is set
+    /// Raised when a yank completes. Span is in the current snapshot.
     [<CLIEvent>]
-    abstract MarkSet: IDelegateEvent<System.EventHandler<MarkTextBufferEventArgs>>
+    abstract YankOccurred: IDelegateEvent<System.EventHandler<SnapshotSpanEventArgs>>
 
 /// Main interface for the Vim editor engine so to speak. 
+
+
 and IVimBuffer =
 
     /// Sequence of available Modes
@@ -5877,6 +5887,11 @@ and IVimBuffer =
     /// Raised when the mode is switched.  Returns the old and new mode 
     [<CLIEvent>]
     abstract SwitchedMode: IDelegateEvent<System.EventHandler<SwitchModeEventArgs>>
+
+    /// Raised when a yank completes. Span is in the current snapshot.
+    [<CLIEvent>]
+    abstract YankOccurred: IDelegateEvent<System.EventHandler<SnapshotSpanEventArgs>>
+
 
     /// Raised when a KeyInput is received by the buffer.  This will be raised for the 
     /// KeyInput which was received and does not consider any mappings

@@ -1,4 +1,4 @@
-﻿#light
+#light
 
 namespace Vim.Interpreter
 open Vim
@@ -2124,15 +2124,24 @@ and [<Sealed>] internal Parser
         match _tokenizer.CurrentTokenKind with
         | TokenKind.Character '\\' -> x.ParseError Resources.Parser_InvalidArgument
         | TokenKind.Character '"' -> x.ParseError Resources.Parser_InvalidArgument
+        | TokenKind.Character '|' -> x.ParseError Resources.Parser_InvalidArgument
+        | TokenKind.Character '!' -> x.ParseError Resources.Parser_InvalidArgument
+        | TokenKind.Character delimiter when System.Char.IsLetter delimiter -> x.ParseError Resources.Parser_InvalidArgument
         | TokenKind.Character delimiter ->
             _tokenizer.MoveNextToken()
             let pattern, foundDelimiter = x.ParsePattern delimiter
             if foundDelimiter then
-                let command = x.ParseSingleLine()
+                x.SkipBlanks()
+                let command =
+                    if _tokenizer.IsAtEndOfLine then
+                        LineCommand.DisplayLines (LineRangeSpecifier.None, LineCommandFlags.Print)
+                    else
+                        x.ParseSingleLine()
                 LineCommand.Global (lineRange, pattern, matchPattern, command)
             else
                 x.ParseError Resources.Parser_InvalidArgument
         | _ -> x.ParseError Resources.Parser_InvalidArgument
+
 
     /// Parse out the :if command from the buffer
     member x.ParseIfStart() = 

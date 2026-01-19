@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Vim.EditorHost;
@@ -2525,6 +2525,7 @@ namespace Vim.UnitTest
             }
 
             /// <summary>
+            /// <summary>
             /// Test the use of the "del" command with global
             /// </summary>
             [WpfFact]
@@ -2562,6 +2563,64 @@ namespace Vim.UnitTest
                 Assert.Equal("fish", _textBuffer.GetLine(1).GetText());
                 Assert.Equal(0, _textView.GetCaretPoint().Position);
             }
+
+            [WpfFact]
+            public void Global_DefaultsToPrint()
+            {
+                Create("cat", "dog", "fish");
+                ParseAndRun("g/o/");
+                Assert.Equal(new[] { "dog" }, _statusUtil.LastStatusLong);
+            }
+
+            [WpfFact]
+            public void Global_InvertMatches()
+            {
+                Create("cat", "dog", "fish");
+                ParseAndRun("g!/o/del");
+                Assert.Equal(new[] { "dog" }, _textBuffer.GetLines().Select(x => x.GetText()).ToArray());
+            }
+
+            [WpfFact]
+            public void Global_EmptyPatternReusesLastSearch()
+            {
+                Create("cat", "dog");
+                _vimData.LastSearchData = new SearchData("cat", SearchPath.Forward);
+                ParseAndRun("g//del");
+                Assert.Equal(new[] { "dog" }, _textBuffer.GetLines().Select(x => x.GetText()).ToArray());
+            }
+
+            [WpfFact]
+            public void Global_EmptyPatternErrorsWithoutLastSearch()
+            {
+                Create("cat", "dog");
+                ParseAndRun("g//del");
+                Assert.Equal(Resources.NormalMode_NoPreviousSearch, _statusUtil.LastError);
+            }
+
+            [WpfFact]
+            public void Global_AlternateDelimiter()
+            {
+                Create("cat", "dog", "fish");
+                ParseAndRun("g@o@del");
+                Assert.Equal(new[] { "cat", "fish" }, _textBuffer.GetLines().Select(x => x.GetText()).ToArray());
+            }
+
+            [WpfFact]
+            public void Global_RangeLimited()
+            {
+                Create("cat", "dog", "fish");
+                ParseAndRun("2,3g/o/del");
+                Assert.Equal(new[] { "cat", "fish" }, _textBuffer.GetLines().Select(x => x.GetText()).ToArray());
+            }
+
+            [WpfFact]
+            public void Global_Nested()
+            {
+                Create("foo", "foo bar", "bar", "foo");
+                ParseAndRun("g/foo/g/bar/del");
+                Assert.Equal(new[] { "foo" }, _textBuffer.GetLines().Select(x => x.GetText()).ToArray());
+            }
+
 
             /// <summary>
             /// Test out the :global command with put
@@ -2601,6 +2660,7 @@ namespace Vim.UnitTest
                 ParseAndRun("g/,/norm nD");
                 Assert.Equal("cat", _textBuffer.GetLine(0).GetText());
             }
+
 
             /// <summary>
             /// Test out the :normal command with delete line (dd) and put (p) key strokes

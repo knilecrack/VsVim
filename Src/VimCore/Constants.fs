@@ -1,4 +1,4 @@
-﻿#light 
+#light 
 
 namespace Vim
 
@@ -30,7 +30,11 @@ module VimConstants =
     [<Literal>]
     let HighlightIncrementalSearchTagName = "vsvim_highlightsearch"
 
+    [<Literal>]
+    let YankTagName = "vsvim_yank"
+
     /// <summary>
+
     /// Name of the main Key Processor
     /// </summary>
     [<Literal>]

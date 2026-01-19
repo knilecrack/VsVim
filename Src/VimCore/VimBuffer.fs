@@ -1,4 +1,4 @@
-﻿#light
+#light
 
 namespace Vim
 
@@ -863,7 +863,10 @@ type internal VimBuffer
         [<CLIEvent>]
         member x.SwitchedMode = _modeMap.SwitchedEvent.Publish
         [<CLIEvent>]
+        member x.YankOccurred = _vimBufferData.VimTextBuffer.YankOccurred
+        [<CLIEvent>]
         member x.KeyInputStart = _keyInputStartEvent.Publish
+
         [<CLIEvent>]
         member x.KeyInputProcessing = _keyInputProcessingEvent.Publish
         [<CLIEvent>]
