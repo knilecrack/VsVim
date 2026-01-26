@@ -2,6 +2,7 @@
 
 namespace Vim
 open Microsoft.VisualStudio.Text.Editor
+open System.Threading
 
 [<NoComparison>]
 [<NoEquality>]
@@ -13,14 +14,22 @@ type internal CommandRunnerData = {
     /// Reverse ordered List of all KeyInput for a given command
     Inputs: KeyInput list
 
-    /// Once a CommandBinding is chosen this will be the flags of that 
+    /// Once a CommandBinding is chosen this will be the flags of that
     /// CommandBinding instance
     CommandFlags: CommandFlags option
 }
 
-/// Implementation of the ICommandRunner interface.  
+/// Stores information about a pending ambiguous command
+[<NoComparison>]
+[<NoEquality>]
+type internal PendingCommand = {
+    Command: Command
+    CommandBinding: CommandBinding
+}
+
+/// Implementation of the ICommandRunner interface.
 type internal CommandRunner
-    ( 
+    (
         _vimBufferData: IVimBufferData,
         _motionCapture: IMotionCapture,
         _commandUtil: ICommandUtil,
@@ -36,14 +45,14 @@ type internal CommandRunner
 
     /// Represents the empty state for processing commands.  Holds all of the default
     /// values
-    let _emptyData = { 
+    let _emptyData = {
         KeyInputSet = KeyInputSet.Empty
         Inputs = List.empty
         CommandFlags = None
     }
 
     let _commandRanEvent = StandardEvent<CommandRunDataEventArgs>()
-    
+
     let mutable _commandMap: Map<KeyInputSet, CommandBinding> = Map.empty
 
     /// Contains all of the state data for a Command operation
@@ -52,15 +61,21 @@ type internal CommandRunner
     /// The latest BindData we are waiting to receive KeyInput to complete
     let mutable _runBindData: BindData<Command * CommandBinding> option = None
 
-    /// True during the running of a particular KeyInput 
+    /// True during the running of a particular KeyInput
     let mutable _inBind = false
 
     /// True during the binding of the count
     let mutable _inCount = false
 
-    let mutable _registerName: RegisterName option = None 
+    let mutable _registerName: RegisterName option = None
 
-    let mutable _count: int option = None 
+    let mutable _count: int option = None
+
+    /// Timer for handling ambiguous command timeout
+    let mutable _ambiguityTimer: Timer option = None
+
+    /// Pending command to execute if ambiguity timeout expires
+    let mutable _pendingCommand: PendingCommand option = None 
 
     member x.HasRegisterName = Option.isSome _registerName
 
@@ -85,6 +100,44 @@ type internal CommandRunner
         let visualSpan = VisualSpan.CreateForVirtualSelection _textView _visualKind tabStop useVirtualSpace
         let isMaintainingEndOfLine = _vimBufferData.MaintainCaretColumn.IsMaintainingEndOfLine
         visualSpan.AdjustWithEndOfLine isMaintainingEndOfLine
+
+    /// Cancel any pending ambiguity timer
+    member x.CancelAmbiguityTimer() =
+        match _ambiguityTimer with
+        | Some timer ->
+            timer.Dispose()
+            _ambiguityTimer <- None
+        | None -> ()
+        _pendingCommand <- None
+
+    /// Start the ambiguity timer for a pending command
+    member x.StartAmbiguityTimer(command: Command, commandBinding: CommandBinding) =
+        // Cancel any existing timer
+        x.CancelAmbiguityTimer()
+
+        // Store the pending command
+        _pendingCommand <- Some { Command = command; CommandBinding = commandBinding }
+
+        // Create a timer that fires after 100ms
+        let callback =
+            new TimerCallback(fun _ ->
+                // Execute the pending command on timeout
+                match _pendingCommand with
+                | Some pending ->
+                    // We can't directly execute from the timer thread, so we just clear
+                    // the waiting state and let the next input trigger completion
+                    _pendingCommand <- None
+                    _ambiguityTimer <- None
+
+                    // Execute the command
+                    x.ResetState()
+                    let result = _commandUtil.RunCommand pending.Command
+                    let data = { Command = pending.Command; CommandBinding = pending.CommandBinding; CommandResult = result }
+                    let args = CommandRunDataEventArgs(data)
+                    _commandRanEvent.Trigger x args
+                | None -> ())
+
+        _ambiguityTimer <- Some (new Timer(callback, null, 100, Timeout.Infinite))
 
     /// Used to wait for the character after the " which signals the Register.  When the register
     /// is found it will be passed to completeFunc
@@ -257,22 +310,26 @@ type internal CommandRunner
                         // No longer commands, execute this one
                         BindResult.Complete (Command.NormalCommand (normalCommand, commandData), commandBinding)
                     else
-                        // There are longer commands with this prefix, wait for more input
+                        // There are longer commands with this prefix, start timeout and wait for more input
+                        let command = Command.NormalCommand (normalCommand, commandData)
+                        x.StartAmbiguityTimer(command, commandBinding)
                         bindNext KeyRemapMode.None
                 | CommandBinding.InsertBinding (_, _, insertCommand) ->
                     // Check if there are longer commands with this as a prefix
-                    let withPrefix = 
+                    let withPrefix =
                         findPrefixMatches commandName
                         |> Seq.filter (fun c -> c.KeyInputSet <> commandBinding.KeyInputSet)
                     if Seq.isEmpty withPrefix then
                         // No longer commands, execute this one
                         BindResult.Complete (Command.InsertCommand insertCommand, commandBinding)
                     else
-                        // There are longer commands with this prefix, wait for more input
+                        // There are longer commands with this prefix, start timeout and wait for more input
+                        let command = Command.InsertCommand insertCommand
+                        x.StartAmbiguityTimer(command, commandBinding)
                         bindNext KeyRemapMode.None
                 | CommandBinding.VisualBinding (_, _, visualCommand) ->
                     // Check if there are longer commands with this as a prefix
-                    let withPrefix = 
+                    let withPrefix =
                         findPrefixMatches commandName
                         |> Seq.filter (fun c -> c.KeyInputSet <> commandBinding.KeyInputSet)
                     if Seq.isEmpty withPrefix then
@@ -281,7 +338,10 @@ type internal CommandRunner
                         let visualCommand = Command.VisualCommand (visualCommand, commandData, visualSpan)
                         BindResult.Complete (visualCommand, commandBinding)
                     else
-                        // There are longer commands with this prefix, wait for more input
+                        // There are longer commands with this prefix, start timeout and wait for more input
+                        let visualSpan = x.VisualSpan
+                        let command = Command.VisualCommand (visualCommand, commandData, visualSpan)
+                        x.StartAmbiguityTimer(command, commandBinding)
                         bindNext KeyRemapMode.None
                 | CommandBinding.MotionBinding (_, _, func) -> 
                     // Can't just call this.  It's possible there is a non-motion command with a 
@@ -371,26 +431,29 @@ type internal CommandRunner
 
     /// Function which handles all incoming input
     member x.Run (ki:KeyInput) =
-        if ki = KeyInputUtil.EscapeKey && x.ShouldEscapeCancelCurrentCommand() then 
+        // Cancel any ambiguity timer since we're getting new input
+        x.CancelAmbiguityTimer()
+
+        if ki = KeyInputUtil.EscapeKey && x.ShouldEscapeCancelCurrentCommand() then
             x.ResetState()
             BindResult.Cancelled
-        elif _inBind then 
+        elif _inBind then
             // If we're in the middle of binding the previous value then error.  We don't
             // support reentrancy while binding
             BindResult.Error
         else
             _data <- {_data with Inputs = _data.Inputs @ [ki] }
-            let result = 
+            let result =
                 _inBind <- true
                 try
                     match _runBindData with
                     | Some bindData -> bindData.BindFunction ki
                     | None -> x.BindCountAndRegister ki
-                finally 
+                finally
                     _inBind <-  false
 
             match result with
-            | BindResult.Complete (command, commandBinding) -> 
+            | BindResult.Complete (command, commandBinding) ->
                 x.ResetState()
                 let result = _commandUtil.RunCommand command
                 let data = { Command = command; CommandBinding = commandBinding; CommandResult = result }
@@ -431,6 +494,7 @@ type internal CommandRunner
         _commandMap <- Map.add command.KeyInputSet command _commandMap
     member x.Remove (name:KeyInputSet) = _commandMap <- Map.remove name _commandMap
     member x.ResetState () =
+        x.CancelAmbiguityTimer()
         _data <- _emptyData
         _runBindData <- None
         _inCount <- false
