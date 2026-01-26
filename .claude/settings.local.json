@@ -15,7 +15,8 @@
       "Bash(test:*)",
       "Bash(powershell -ExecutionPolicy ByPass -NoProfile -command:*)",
       "Bash(grep:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }

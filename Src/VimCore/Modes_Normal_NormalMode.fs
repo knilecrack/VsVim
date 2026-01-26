@@ -286,7 +286,9 @@ type internal NormalMode
             |> Seq.append complexSeq
             |> Seq.append (factory.CreateMovementCommands())
             |> Seq.append (factory.CreateScrollCommands())
-            |> Seq.append (factory.CreateVisualTextObjectCommands())
+            // Commented out: Creates ambiguity with 'v' command by adding vi(, va(, etc.
+            // Text objects should be used after entering visual mode with 'v', not as combined commands
+            // |> Seq.append (factory.CreateVisualTextObjectCommands())
             |> Seq.iter _runner.Add
 
             // Add in the special ~ command
