@@ -2246,6 +2246,9 @@ type internal CommonOperations
 
         x.RecordLastChangeOrYank span span
 
+        // Raise the yank occurred event for visual feedback
+        _vimTextBuffer.RaiseYankOccurred span
+
     /// Record last change or yankstart and end positions
     /// (it is a yank if the old span and the new span are the same)
     member x.RecordLastChangeOrYank oldSpan newSpan =

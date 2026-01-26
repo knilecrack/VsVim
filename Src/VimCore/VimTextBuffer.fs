@@ -181,10 +181,7 @@ type internal VimTextBuffer
 
             x.RaiseMarkSet LocalMark.LastChangeOrYankEnd
 
-     member x.RaiseYankOccurred (span: SnapshotSpan) =
-         _yankOccurredEvent.Trigger x (SnapshotSpanEventArgs(span))
-
-     member x.InOneTimeCommand
+    member x.InOneTimeCommand
 
         with get() = _inOneTimeCommand
         and set value = _inOneTimeCommand <- value
@@ -199,6 +196,7 @@ type internal VimTextBuffer
 
     /// Get all of the local marks in the IVimTextBuffer.
     member x.LocalMarks = 
+
         LocalMark.All
         |> Seq.choose (fun localMark ->
             match x.GetLocalMark localMark with
@@ -341,6 +339,7 @@ type internal VimTextBuffer
 
         [<CLIEvent>]
         member x.YankOccurred = _yankOccurredEvent.Publish
+
         member x.RaiseYankOccurred span = x.RaiseYankOccurred span
 
         member x.InOneTimeCommand
@@ -370,6 +369,3 @@ type internal VimTextBuffer
 
         [<CLIEvent>]
         member x.SwitchedMode = _switchedModeEvent.Publish
-
-        [<CLIEvent>]
-        member x.MarkSet = _markSetEvent.Publish

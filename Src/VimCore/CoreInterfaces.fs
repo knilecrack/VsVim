@@ -1709,7 +1709,7 @@ type CharacterSpan =
 
     member x.VirtualSpan = VirtualSnapshotSpan(x.VirtualStart, x.VirtualEnd)
 
-    member x.ColumnSpan = SnapshotColumnSpan(x.Span)
+    member x.ColumnSpan = SnapshotColumnSpan(x.Span) 
 
     member x.VirtualColumnSpan = VirtualSnapshotColumnSpan(x.VirtualSpan)
 
@@ -1785,8 +1785,13 @@ type BlockSpan =
             else
                 VirtualSnapshotColumn.GetColumnForSpaces(span.Start.Line, endColumnSpaces, tabStop), -width
 
-        let height = VirtualSnapshotSpanUtil.GetLineCount span.VirtualSpan
-        BlockSpan(startColumn, tabStop = tabStop, spaces = width, height = height, endOfLine = false)
+        let height =
+            let mutable h = VirtualSnapshotSpanUtil.GetLineCount span.VirtualSpan
+            if h = 0 then
+                h <- 1
+            h
+
+        { _startColumn = startColumn; _tabStop = tabStop; _spaces = width; _height = height; _endOfLine = false }
 
     /// Create a BlockSpan for the given SnapshotSpan.  The returned BlockSpan
     /// will have a minimum of 1 for height and width.  The start of the
@@ -5625,7 +5630,6 @@ and IVimTextBuffer =
     /// hold the ModeKind which will be switched back to after it's completed
     abstract InOneTimeCommand: ModeKind option with get, set
 
-    
     /// True if we are processing a "one time command" initiated from a select mode,
     /// or from a select mode initiated from within another "one time command", e.g. "(insert) SELECT".
     abstract InSelectModeOneTimeCommand: bool with get, set
@@ -5689,13 +5693,9 @@ and IVimTextBuffer =
     /// Switch the current mode to the provided value
     abstract SwitchMode: ModeKind -> ModeArgument -> unit
 
-    /// Raised when the mode is switched.  Returns the old and new mode 
+    /// Raised when the mode is switched.  Returns the old and new mode
     [<CLIEvent>]
     abstract SwitchedMode: IDelegateEvent<System.EventHandler<SwitchModeKindEventArgs>>
-
-    /// Raised when a yank completes. Span is in the current snapshot.
-    [<CLIEvent>]
-    abstract YankOccurred: IDelegateEvent<System.EventHandler<SnapshotSpanEventArgs>>
 
 /// Main interface for the Vim editor engine so to speak. 
 

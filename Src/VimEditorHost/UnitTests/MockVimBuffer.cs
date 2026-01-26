@@ -248,6 +248,8 @@ namespace Vim.UnitTest
 
         public event EventHandler<SwitchModeEventArgs> SwitchedMode;
 
+        public event EventHandler<SnapshotSpanEventArgs> YankOccurred;
+
 #pragma warning disable 67
         public event EventHandler<KeyInputStartEventArgs> KeyInputProcessing;
 

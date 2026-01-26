@@ -2577,7 +2577,7 @@ namespace Vim.UnitTest
             {
                 Create("cat", "dog", "fish");
                 ParseAndRun("g!/o/del");
-                Assert.Equal(new[] { "dog" }, _textBuffer.GetLines().Select(x => x.GetText()).ToArray());
+                Assert.Equal(new[] { "dog" }, _textBuffer.GetLines().ToArray());
             }
 
             [WpfFact]
@@ -2586,7 +2586,7 @@ namespace Vim.UnitTest
                 Create("cat", "dog");
                 _vimData.LastSearchData = new SearchData("cat", SearchPath.Forward);
                 ParseAndRun("g//del");
-                Assert.Equal(new[] { "dog" }, _textBuffer.GetLines().Select(x => x.GetText()).ToArray());
+                Assert.Equal(new[] { "dog" }, _textBuffer.GetLines().ToArray());
             }
 
             [WpfFact]
@@ -2602,7 +2602,7 @@ namespace Vim.UnitTest
             {
                 Create("cat", "dog", "fish");
                 ParseAndRun("g@o@del");
-                Assert.Equal(new[] { "cat", "fish" }, _textBuffer.GetLines().Select(x => x.GetText()).ToArray());
+                Assert.Equal(new[] { "cat", "fish" }, _textBuffer.GetLines().ToArray());
             }
 
             [WpfFact]
@@ -2610,7 +2610,7 @@ namespace Vim.UnitTest
             {
                 Create("cat", "dog", "fish");
                 ParseAndRun("2,3g/o/del");
-                Assert.Equal(new[] { "cat", "fish" }, _textBuffer.GetLines().Select(x => x.GetText()).ToArray());
+                Assert.Equal(new[] { "cat", "fish" }, _textBuffer.GetLines().ToArray());
             }
 
             [WpfFact]
@@ -2618,7 +2618,7 @@ namespace Vim.UnitTest
             {
                 Create("foo", "foo bar", "bar", "foo");
                 ParseAndRun("g/foo/g/bar/del");
-                Assert.Equal(new[] { "foo" }, _textBuffer.GetLines().Select(x => x.GetText()).ToArray());
+                Assert.Equal(new[] { "foo" }, _textBuffer.GetLines().ToArray());
             }
 
 

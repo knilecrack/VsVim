@@ -30,4 +30,17 @@ namespace Vim.UI.Wpf.Implementation.Misc
             ForegroundCustomizable = false;
         }
     }
+
+    [Export(typeof(EditorFormatDefinition))]
+    [Name(VimConstants.YankTagName)]
+    [UserVisible(true)]
+    internal sealed class YankHighlightMarkerDefinition : MarkerFormatDefinition
+    {
+        internal YankHighlightMarkerDefinition()
+        {
+            DisplayName = "VsVim Yank Highlight";
+            BackgroundColor = Color.FromRgb(255, 255, 150); // Light yellow
+            ForegroundCustomizable = false;
+        }
+    }
 }

@@ -12,7 +12,10 @@
       "Bash(Select-String -Pattern \"error|Build succeeded|Build FAILED\")",
       "Bash(ls:*)",
       "Bash(Select-String -Pattern \"\\(Vs2026\\\\.Build\\\\.targets|ResolveAssemblyReference\\)\")",
-      "Bash(test:*)"
+      "Bash(test:*)",
+      "Bash(powershell -ExecutionPolicy ByPass -NoProfile -command:*)",
+      "Bash(grep:*)",
+      "Bash(git add:*)"
     ]
   }
 }
