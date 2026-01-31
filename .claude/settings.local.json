@@ -16,7 +16,8 @@
       "Bash(powershell -ExecutionPolicy ByPass -NoProfile -command:*)",
       "Bash(grep:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(cmd /c \"dir /b \"\"C:\\\\Program Files\\\\Microsoft Visual Studio\"\"\")"
     ]
   }
 }
