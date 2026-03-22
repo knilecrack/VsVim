@@ -571,7 +571,7 @@ type internal BlockUtil() =
         // unless but it needs to be moved inside the block because vim treats
         // the character under the cusor as the context point.
         let referencePoint =
-            if isChar startChar contextPoint then
+            if not (SnapshotPointUtil.IsEndPoint contextPoint) && isChar startChar contextPoint then
                 SnapshotPointUtil.AddOneOrCurrent contextPoint
             else
                 contextPoint
@@ -622,40 +622,86 @@ type internal BlockUtil() =
                         yield point
             }
 
-        // Search backward for the character that starts this block.
-        let startPointBackward =
-            SnapshotSpan(SnapshotUtil.GetStartPoint referencePoint.Snapshot, referencePoint)
-            |> SnapshotSpanUtil.GetPoints SearchPath.Backward
-            |> filterToContext
-            |> SeqUtil.tryFind 1 (findMatched endChar startChar)
+        let currentLine = SnapshotPointUtil.GetContainingLine referencePoint
 
-        // If backward search didn't find a start character, search forward on the
-        // current line for the next opening character (matching vim behavior for
-        // text objects like vi( when cursor is before the opening paren)
-        let startPoint =
-            match startPointBackward with
-            | Some _ -> startPointBackward
-            | None ->
-                let line = SnapshotPointUtil.GetContainingLine referencePoint
-                SnapshotSpan(referencePoint, line.End)
+        // First, try to find a complete block on the current line only
+        let sameLineBlock =
+            // Search the entire current line for the first opening char (without filterToContext to avoid filtering issues)
+            let lineStart =
+                SnapshotSpan(currentLine.Start, currentLine.End)
                 |> SnapshotSpanUtil.GetPoints SearchPath.Forward
-                |> filterToContext
-                |> Seq.tryFind (isChar startChar)
+                |> Seq.filter (fun pt ->
+                    try
+                        SnapshotPointUtil.GetChar pt = startChar
+                    with
+                    | _ -> false)
+                |> Seq.tryHead
 
-        // Then search forward for the character that ends this block.
-        let endPoint =
-            match startPoint with
+            match lineStart with
+            | Some openPt ->
+                // Search forward from opening char for matching closing char
+                let mutable count = 0
+                let mutable result = None
+                let points =
+                    SnapshotSpan(openPt, currentLine.End)
+                    |> SnapshotSpanUtil.GetPoints SearchPath.Forward
+
+                for pt in points do
+                    try
+                        let ch = SnapshotPointUtil.GetChar pt
+                        if ch = startChar then
+                            count <- count + 1
+                        elif ch = endChar then
+                            count <- count - 1
+                            if count = 0 then
+                                result <- Some pt
+                    with
+                    | _ -> ()
+
+                match result with
+                | Some closePt when SnapshotPointUtil.GetContainingLine closePt = currentLine ->
+                    // Found a complete block on current line
+                    Some (openPt, closePt)
+                | _ -> None
             | None -> None
-            | Some startPoint ->
-                SnapshotSpan(startPoint, SnapshotUtil.GetEndPoint referencePoint.Snapshot)
-                |> SnapshotSpanUtil.GetPoints SearchPath.Forward
-                |> filterToContext
-                |> SeqUtil.tryFind 0 (findMatched startChar endChar)
 
-        // Return the span from the start of the block to the end of the block.
-        match startPoint, endPoint with
-        | Some startPoint, Some endPoint -> Some (startPoint, endPoint)
-        | _ -> None
+        // If no same-line block found, fall back to standard multi-line search
+        match sameLineBlock with
+        | Some block -> Some block
+        | None ->
+            // Search backward for the character that starts this block.
+            let startPointBackward =
+                SnapshotSpan(SnapshotUtil.GetStartPoint referencePoint.Snapshot, referencePoint)
+                |> SnapshotSpanUtil.GetPoints SearchPath.Backward
+                |> filterToContext
+                |> SeqUtil.tryFind 1 (findMatched endChar startChar)
+
+            // If backward search didn't find a start character, search forward on the
+            // current line for the next opening character (matching vim behavior for
+            // text objects like vi( when cursor is before the opening paren)
+            let startPoint =
+                match startPointBackward with
+                | Some _ -> startPointBackward
+                | None ->
+                    SnapshotSpan(referencePoint, currentLine.End)
+                    |> SnapshotSpanUtil.GetPoints SearchPath.Forward
+                    |> filterToContext
+                    |> Seq.tryFind (isChar startChar)
+
+            // Then search forward for the character that ends this block.
+            let endPoint =
+                match startPoint with
+                | None -> None
+                | Some startPoint ->
+                    SnapshotSpan(startPoint, SnapshotUtil.GetEndPoint referencePoint.Snapshot)
+                    |> SnapshotSpanUtil.GetPoints SearchPath.Forward
+                    |> filterToContext
+                    |> SeqUtil.tryFind 0 (findMatched startChar endChar)
+
+            // Return the span from the start of the block to the end of the block.
+            match startPoint, endPoint with
+            | Some startPoint, Some endPoint -> Some (startPoint, endPoint)
+            | _ -> None
 
 
 type MatchingTokenUtil() = 

@@ -17,7 +17,10 @@
       "Bash(grep:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(cmd /c \"dir /b \"\"C:\\\\Program Files\\\\Microsoft Visual Studio\"\"\")"
+      "Bash(cmd /c \"dir /b \"\"C:\\\\Program Files\\\\Microsoft Visual Studio\"\"\")",
+      "Bash(cmd /c Build.cmd)",
+      "Bash(powershell -command:*)",
+      "Bash(powershell -ExecutionPolicy ByPass -command \"dotnet test ../../Binaries/Debug/VimCoreTest2019/net472/Vim.Core.2019.UnitTest.dll --filter FullyQualifiedName~TextObject_AllParen_Multiple --logger:''console;verbosity=detailed''\")"
     ]
   }
 }
