@@ -1089,7 +1089,80 @@ namespace Vim.VisualStudio
 
         public override void RunHostCommand(ITextView textView, string command, string argument)
         {
-            SafeExecuteCommand(textView, command, argument);
+            if (command.StartsWith("-", StringComparison.Ordinal))
+            {
+                HandleMetaCommand(textView, command, argument);
+            }
+            else if (!SafeExecuteCommand(textView, command, argument))
+            {
+                _vim.ActiveStatusUtil.OnError($"Failed to execute Visual Studio command '{command}'");
+            }
+        }
+
+        private void HandleMetaCommand(ITextView textView, string command, string argument)
+        {
+            switch (command.ToLowerInvariant())
+            {
+                case "-list":
+                case "-search":
+                    ListVsCommands(argument);
+                    break;
+                case "-help":
+                    _vim.ActiveStatusUtil.OnStatus("Usage: :vsc [-list|-search] [pattern] OR :vsc CommandName [args]");
+                    break;
+                default:
+                    _vim.ActiveStatusUtil.OnError($"Unknown meta-command '{command}'. Use ':vsc -help' for usage.");
+                    break;
+            }
+        }
+
+        private void ListVsCommands(string pattern)
+        {
+            try
+            {
+                // DTE collections can be slow to iterate, so we do it carefully.
+                var matchingCommands = new List<string>();
+                foreach (EnvDTE.Command cmd in _dte.Commands)
+                {
+                    try
+                    {
+                        var name = cmd.Name;
+                        if (!string.IsNullOrEmpty(name) &&
+                            (string.IsNullOrEmpty(pattern) || name.IndexOf(pattern, StringComparison.OrdinalIgnoreCase) >= 0))
+                        {
+                            matchingCommands.Add(name);
+                        }
+                    }
+                    catch
+                    {
+                        // Some commands might throw when accessing Name
+                    }
+                }
+
+                matchingCommands.Sort();
+
+                if (matchingCommands.Count == 0)
+                {
+                    _vim.ActiveStatusUtil.OnError($"No matching Visual Studio commands found for '{pattern}'");
+                }
+                else if (matchingCommands.Count > 1)
+                {
+                    _vim.ActiveStatusUtil.OnStatus($"Found {matchingCommands.Count} matching commands. Results sent to 'VsVim' output pane.");
+                    VimTrace.TraceInfo($"Matching Visual Studio commands for '{pattern}':");
+                    foreach (var name in matchingCommands)
+                    {
+                        VimTrace.TraceInfo($"  {name}");
+                    }
+                }
+                else
+                {
+                    _vim.ActiveStatusUtil.OnStatus($"Found command: {matchingCommands[0]}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _vim.ActiveStatusUtil.OnError($"Error listing commands: {ex.Message}");
+            }
         }
 
         /// <summary>
