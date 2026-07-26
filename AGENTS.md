@@ -2,150 +2,211 @@
 
 Guidance for agentic coding assistants working in the VsVim repository.
 
-## Scope
-- Audience: code agents (Claude Code, ChatGPT, etc.) collaborating on VsVim.
-- Goals: build/run quickly, follow house styles, avoid breaking the VSIX build.
-- Repo languages: F# (vim core), C# (VS integration, WPF), a little PowerShell for build/test.
+## Project Overview
 
-## Repository Landmarks
-- Root solution: `VsVim.sln` (includes all VS2019/VS2022 projects).
-- Additional solution: `Src/CleanVsix/CleanVsix.sln` (utility used during packaging).
-- Scripts: `Scripts/Build.ps1`, `Build.cmd` wrappers for build/test/pack/verify.
-- App host: `Src/VimApp/` lightweight WPF editor host for quick manual checks.
-- Tests: `Test/VimCoreTest2019/`, `Test/VimCoreTest2022/`, `Test/VsVimTest2019/`, `Test/VsVimTest2022/` (all xUnit, .NET Framework 4.7.2 output under `Binaries/<Config>/...`).
-- Shared integration: `Src/VsVimShared/`, core engine: `Src/VimCore/`, WPF bits: `Src/VimWpf/`.
-- No Cursor rules present (`.cursor/`, `.cursorrules` not found); no Copilot instructions file found (`.github/copilot-instructions.md` absent).
+VsVim is a free Vim emulator for Visual Studio 2019, 2022 and 2026, licensed under
+Apache 2.0 (see `License.txt`). It implements a high-fidelity Vim engine (motions,
+modes, Ex commands, registers, macros, etc.) on top of the Visual Studio WPF editor.
 
-## Environments & Prereqs
-- Primary IDE: Visual Studio 2022.
-- Required workloads: .NET Desktop Development, F# Language, Visual Studio Extension Development.
-- Target frameworks: tests run on .NET Framework 4.7.2 outputs.
-- Supported VS editor targets: 2019, 2022; build scripts also list 2026 for future.
-- Environment variable `VsVimTargetVersion` (14.0/15.0/16.0) influences which VS editor binaries tests bind to.
+- Languages: F# (the vim core engine), C# (Visual Studio integration, WPF, tests),
+  a little PowerShell for build/test automation.
+- There is also `Src/VimMac/`, a Visual Studio for Mac extension (net7.0) built only
+  on macOS CI.
 
-## Build Commands
-- Default build (Debug): `Build.cmd` (wraps PowerShell script).
-- Release build: `Build.cmd -config Release`.
-- CI-style build without deploying VSIX: `powershell -ExecutionPolicy ByPass -NoProfile -command "& Scripts/Build.ps1 -build -ci"`.
-- Build solution directly with MSBuild (after restore): `msbuild /nologo /restore /v:m /m /p:Configuration=Debug VsVim.sln`.
-- Clean VSIX artifacts are produced into `Binaries/Deploy/<Config>/<VsVersion>/` during build.
+## Repository Layout
 
-## Test Commands (Batch)
-- Full test run: `powershell -ExecutionPolicy ByPass -NoProfile -command "& Scripts/Build.ps1 -test"` (runs all VS2019/VS2022 xUnit suites).
-- Full build + tests: `Build.cmd -test` or `powershell ... Scripts/Build.ps1 -build -test`.
-- Extra verification (VSIX contents + version consistency): `powershell ... Scripts/Build.ps1 -testExtra` (runs `Test-VsixContents` + `Test-Version`).
+- Root solution: `VsVim.sln` — contains all projects including the VS2019/2022/2026
+  flavors.
+- `Src/VimCore/` — F# core vim engine. Editor-agnostic: modes (Normal, Visual,
+  Insert, Command, SubstituteConfirm...), motions, Ex command interpreter
+  (`Interpreter_*.fs`), key notation, registers, marks, undo. Version number lives
+  in `Src/VimCore/Constants.fs`.
+- `Src/VsVimShared/` — C# integration with the Visual Studio editor APIs shared by
+  all VS versions (command routing, `VsVimHost`, `VsVimPackage`, key bindings).
+- `Src/VimWpf/` — WPF rendering pieces (block caret, command margin). A shared
+  project (`.shproj`/`.projitems`), compiled into consumers rather than shipped
+  alone.
+- `Src/VimEditorHost/` — shared project for hosting `IVimBuffer` in tests and in
+  VimApp; defines `EditorVersion` (Vs2019 / Vs2022 / Vs2026).
+- `Src/VimApp/` — lightweight WPF host of the VS editor; starts fast, good for
+  manually testing vim behavior without launching full Visual Studio.
+- `Src/VimTestUtils/` — shared test utilities (`WpfFactAttribute`, mock factories).
+- `Src/VsVim2019/`, `Src/VsVim2022/`, `Src/VsVim2026/` — thin per-VS-version VSIX
+  projects (each has its own `source.extension.vsixmanifest`).
+- `Src/CleanVsix/` — small utility (`CleanVsix.exe`) run during packaging to strip
+  unwanted files out of the produced VSIX.
+- `Test/VimCoreTest/` — shared test project (`.shproj`) whose sources are compiled
+  into `Test/VimCoreTest2019/`, `Test/VimCoreTest2022/`, `Test/VimCoreTest2026/`.
+  Add new core tests here, not in the per-version projects.
+- `Test/VsVimSharedTest/`, `Test/VsVimTest2019/2022/2026/`, `Test/VimWpfTest/` —
+  the remaining xUnit suites.
+- `References/Common|Vs2019|Vs2022|Vs2026/` — VS editor reference assemblies.
+  `Directory.Build.props` restricts `AssemblySearchPaths` to these (no GAC), so
+  builds are machine-independent.
+- `Scripts/` — `Build.ps1` (main build/test/pack script), `build.sh` (macOS VimMac
+  build), `target.cmd`, `Test-ProjectFiles.ps1`. `Tools/` holds `vswhere.exe` and
+  7-Zip used by the scripts.
 
-## Test Commands (Single Assembly / Single Test)
-- After a build, assemblies land under `Binaries/<Config>/VimCoreTest2019/net472/...` etc.
-- Run one assembly (example 2022 core):
-  - `Binaries/Debug/VimCoreTest2022/net472/xunit.console.x86.exe Binaries/Debug/VimCoreTest2022/net472/Vim.Core.2022.UnitTest.dll`
-- Run one test method via xUnit console `-method` switch (adjust paths as needed):
-  - `Binaries/Debug/VimCoreTest2022/net472/xunit.console.x86.exe Binaries/Debug/VimCoreTest2022/net472/Vim.Core.2022.UnitTest.dll -method Namespace.ClassName.TestMethod`
-- Run one test class: use `-class Namespace.ClassName`.
-- If `VsVimTargetVersion` must change, set it before invoking the runner.
+## Technology Stack
 
-## Quick Local Smoke (Manual)
-- Open `Src/VimApp/` in VS, set startup project to VimApp, F5 to sanity-check key behavior without full VS.
-- Packaging sanity: ensure `Binaries/Deploy/<Config>/<VsVersion>/VsVim.vsix` exists after build; `Test-VsixContents` verifies expected files.
+- Target framework: .NET Framework 4.7.2 for the VSIX and all Windows test
+  assemblies (VimMac targets net7.0).
+- Tests: xUnit 2.4.1, executed with `xunit.console.x86.exe` from the NuGet package
+  cache.
+- Editor integration via MEF and the VS SDK (`Microsoft.VSSDK.BuildTools`).
+- Primary IDE: Visual Studio 2022 with the .NET Desktop Development, F# Language
+  and Visual Studio Extension Development workloads.
 
-## Source Control Hygiene
-- Respect existing user changes; do not revert unrelated edits.
-- No destructive git commands (`reset --hard`, force push) unless explicitly requested.
-- Default branch style: follow recent commit messages visible via `git log --oneline -n 10` when crafting commits.
+## Multi-Version Targeting
 
-## Coding Style (General)
-- Default to DotNet coding style for C#: https://github.com/dotnet/corefx/blob/master/Documentation/coding-guidelines/coding-style.md
-- F# style: see below; follow project conventions, not generic F# style.
-- Prefer clarity over cleverness; mirror existing patterns in the same folder.
-- Keep ASCII-only unless existing file already contains non-ASCII.
+Each VS version is a separate project pair (`VsVim2022` + `VsVimTest2022`, etc.)
+that compiles the shared sources with a per-project MSBuild property
+`VsVimVisualStudioTargetVersion` (`16.0` = VS2019, `17.0` = VS2022, `18.0` =
+VS2026), set in each `.csproj`. `Directory.Build.targets` imports the matching
+`References/Vs20xx/Vs20xx.Build.targets`. Version-specific behavior is handled
+with `#if` directives. The legacy `Scripts/target.cmd` writes a
+`VsVimTargetVersion` property into `Binaries/User.props` (imported by
+`Directory.Build.props`); `Documentation/Developing.md` describes this but is
+partly stale (it predates VS2022/2026 and GitHub Actions).
 
-## Imports / Usings
-- C#: place `using System;`-style namespaces first, then others, sorted and grouped per DotNet guidelines; avoid unused usings.
-- F#: keep `open` lists minimal and localized; avoid blanket opens that widen scope unnecessarily.
-- Do not introduce wildcards; keep namespaces specific to needed APIs.
+## Build and Test Commands
 
-## Formatting
-- C#: brace and spacing per DotNet style (K&R-ish, spaces after keywords, braces on new lines for types/members).
-- C#: one statement per line; avoid trailing whitespace; prefer expression-bodied members only when it improves clarity.
-- F#: add spaces between values and operators, between names and values in record initializers, between names and explicit types, and between keywords and opening parens (`if (`, `with get (`).
-- F#: do not use semicolons for multi-line object initializers.
-- Align multiline argument lists and pipeline steps for readability; keep indentation consistent with surrounding code.
+All builds go through `Scripts/Build.ps1`; `Build.cmd` / `Test.cmd` are thin
+wrappers.
 
-## Naming & Terminology
-- Follow existing domain terms: **Last** is inclusive; **End** is exclusive.
-- Columns/positions: **Column** = Vim column (tab=1), **Position** = editor `SnapshotPoint`, **Spaces** = Vim visual width (tabstop, wide chars count 2).
-- Util classes typically expose `Create` helpers.
-- APIs taking counts should guard against oversized user input (return option or validate); APIs taking line numbers should consider returning option when out-of-range.
+- Build (Debug): `Build.cmd` or
+  `powershell -ExecutionPolicy ByPass -NoProfile -command "& Scripts/Build.ps1 -build"`
+- Release build: `Build.cmd -config Release`
+- CI build (no VSIX deploy step): `Scripts/Build.ps1 -build -ci`
+- Direct MSBuild: `msbuild /nologo /restore /v:m /m /p:Configuration=Debug VsVim.sln`
+  (MSBuild path is located via `Tools/vswhere.exe`; do not hardcode VS paths.)
+- Full test run: `Scripts/Build.ps1 -test` — runs, for each of 2019/2022/2026,
+  `Vim.Core.<ver>.UnitTest.dll` and `Vim.VisualStudio.Shared.<ver>.UnitTest.dll`
+  from `Binaries/<Config>/.../net472/` with the xUnit console runner from the
+  NuGet cache, writing XML results to `Binaries/xunitResults/`.
+- Extra verification: `Scripts/Build.ps1 -testExtra` — runs `Test-VsixContents`
+  (unpacks each VSIX with 7-Zip and checks the exact expected file set) and
+  `Test-Version` (version in `Src/VimCore/Constants.fs` must equal every
+  `source.extension.vsixmanifest` version, and `VsVimPackage.cs` must reference
+  `VimConstants.VersionNumber`).
+- Build + tests: `Build.cmd -test`
 
-## Types & Nullability
-- Prefer explicit types where they clarify intent (especially public APIs); rely on `var`/F# inference in obvious local contexts only.
-- Avoid nulls in new code; prefer options (`Option` in F#, nullable references or `Optional` patterns in C#) and clear defaulting.
-- Keep discriminated unions and enums exhaustive; handle `default` cases consciously to avoid silent behavior changes.
+### Running a single test
 
-## Error Handling & Logging
-- Fail fast in scripts when environment variables (e.g., `GITHUB_RUN_NUMBER`) are missing and required.
-- In C#: throw argument exceptions for invalid inputs; return clear error results when part of command-processing flow; avoid swallowing exceptions.
-- In F#: propagate errors via result/option where part of control flow; avoid exceptions for expected states.
-- Build scripts: preserve `Set-StrictMode -version 2.0` and `$ErrorActionPreference="Stop"`; surface failures with clear messages (see `Write-TaskError`).
+The xUnit console runner is not copied to the output directory; use the one from
+the NuGet cache:
 
-## Testing Patterns
-- Tests are xUnit; keep fixtures small and deterministic.
-- Target-specific behavior may differ between VS2019 and VS2022; parameterize where needed rather than duplicating logic.
-- When adding tests, ensure they work with `VsVimTargetVersion` variations (14.0/15.0/16.0) if they touch editor APIs.
+```
+%UserProfile%\.nuget\packages\xunit.runner.console\2.4.1\tools\net472\xunit.console.x86.exe ^
+  Binaries\Debug\VimCoreTest2022\net472\Vim.Core.2022.UnitTest.dll ^
+  -method Namespace.ClassName.TestMethod
+```
 
-## Performance & Allocation
-- Be mindful of allocations in hot paths (motion capture, command execution); reuse spans/buffers where existing code does so.
-- Avoid LINQ in tight loops inside the core engine; prefer imperative loops as seen in nearby code.
+Use `-class Namespace.ClassName` for a whole class. Test assemblies are named
+`Vim.Core.<2019|2022|2026>.UnitTest.dll` and
+`Vim.VisualStudio.Shared.<2019|2022|2026>.UnitTest.dll`.
 
-## Threading & Async
-- Visual Studio integration often runs on UI thread; follow existing marshaling patterns in `VsVimShared` and avoid deadlocks.
-- Use async/await only when the surrounding layer already uses it; many core operations are synchronous by design.
+### Manual smoke testing
 
-## UI / WPF Notes
-- Preserve existing WPF styling in `VimWpf`; avoid introducing new resources without checking shared dictionaries.
-- Keep command margin and caret rendering behavior consistent across VS versions; test in VimApp when possible.
+Open the solution, set `VimApp` as startup project and F5 — this hosts the real
+vim engine in a lightweight WPF shell and is much faster than launching an
+experimental VS instance.
 
-## VSIX Packaging
-- Packaging uses `CleanVsix.exe` to strip unwanted files; do not bypass this in new scripts.
-- If touching manifests (`source.extension.vsixmanifest`), ensure version consistency across `Src/VsVim*/` and `Src/VimCore/Constants.fs`; `Test-Version` enforces this.
+## CI / Deployment
 
-## Build Script Conventions
-- `Scripts/Build.ps1` supports switches: `-build`, `-test`, `-testExtra`, `-updateVsixVersion`, `-uploadVsix`, `-config`, `-ci`.
-- Keep new script parameters aligned with existing pattern (Switch parameters for actions; string for config).
-- MSBuild path resolved via `vswhere.exe`; avoid hardcoding VS install paths.
+CI is GitHub Actions (`.github/workflows/main.yml`), on `windows-2022`:
 
-## Dependencies & Restore
-- NuGet cache resolved via `NUGET_PACKAGES` or `%UserProfile%\.nuget\packages`; do not commit restored packages.
-- Package restore occurs during `msbuild /restore`; `Build.cmd` handles it automatically.
+1. `Scripts\Build.ps1 -ci -config Debug -build`
+2. `Scripts\Build.ps1 -ci -config Debug -test`
+3. `Scripts\Build.ps1 -ci -config Debug -testExtra`
+4. A Release publish job builds with `-updateVsixVersion` (stamps
+   `GITHUB_RUN_NUMBER` into the VSIX manifests) and uploads the VSIX artifacts.
+5. A macOS job builds `Src/VimMac/` via `Scripts/build.sh` and publishes the
+   `.mpack`.
 
-## File / Repo Conventions
-- Ignore patterns in `.gitignore` should be respected; do not commit binaries (`Binaries/`, `Deploy/`, `Debug/`, `Release/`).
-- Keep ASCII-only when editing text; repository primarily uses UTF-8 without BOM.
+Built VSIX files are cleaned by `CleanVsix.exe` and land in
+`Binaries/Deploy/<Config>/<VsVersion>/VsVim.vsix`. Do not bypass `CleanVsix` in
+new scripts. Publishing to the Open VSIX Gallery is done by
+`Scripts/Build.ps1 -uploadVsix` (CI only; requires `GITHUB_RUN_NUMBER`).
 
-## What Does Not Exist
-- No repository-wide `.editorconfig` present; follow documented guidelines instead.
-- No Cursor rules or Copilot instruction files to inherit; this document plus `CLAUDE.md` and `Documentation/CodingGuidelines.md` are authoritative.
+## Code Style
 
-## When Adding Docs
-- Keep new docs concise and place them under `Documentation/` unless otherwise requested.
-- Mirror this file’s tone for agent-facing instructions.
+Authoritative docs: `Documentation/CodingGuidelines.md` plus this file. C#
+follows the dotnet/corefx coding style.
 
-## Good Agent Habits
-- Before commits: run at least targeted tests relevant to touched area; for packaging changes run `-testExtra`.
-- Summarize changes with rationale; avoid long diffs without explanation.
-- Never force-push unless user explicitly directs.
-- When unsure about VS version-specific behavior, check both 2019 and 2022 test projects.
+- C#: braces on new lines for types/members, spaces after keywords, one statement
+  per line, `using System.*` first then sorted groups, no unused usings, no
+  trailing whitespace.
+- F#: prefix private fields with `_`; add spaces around operators/comparisons,
+  in record initializers, before explicit type annotations (`(text: string)`),
+  and between keywords and open parens (`if (`, `with get (`); do not use `;`
+  in multi-line object initializers.
+- Keep `open` lists minimal and localized; no wildcard usings.
+- ASCII-only in source unless the file already contains non-ASCII; UTF-8 without
+  BOM.
+- Match the surrounding file's existing patterns; keep changes minimal and
+  scoped — no drive-by refactors.
+
+## Naming / Terminology Conventions
+
+- **Last** is inclusive; **End** is exclusive.
+- **Column** = Vim column (tabs count as 1), **Position** = editor
+  `SnapshotPoint`, **Spaces** = Vim visual width (tabstop, double-wide chars).
+- Util classes expose `Create` helper methods.
+- APIs taking a count must return an option or guard against oversized user
+  input (users control counts). APIs taking a line number should consider
+  returning an option.
+- Prefer options over nulls; keep discriminated-union/enum matches exhaustive
+  and handle `default` cases consciously.
+
+## Testing Conventions
+
+- xUnit; fixtures small and deterministic. WPF-dependent tests use
+  `WpfFactAttribute` from `VimTestUtils`.
+- Core engine tests go in the shared `Test/VimCoreTest/` project so they run
+  against all three VS editor versions.
+- Behavior can differ subtly between editor versions; when unsure, check the
+  2019, 2022 and 2026 test flavors rather than assuming.
+- Integration-style tests (`*IntegrationTest.cs`) drive a real `IVimBuffer`
+  through `VimEditorHost`.
+
+## Performance / Threading Notes
+
+- The core engine is synchronous by design; avoid LINQ and extra allocations in
+  hot paths (motion capture, command execution) — mirror the imperative style of
+  nearby code.
+- VS integration code often runs on the UI thread; follow existing marshaling
+  patterns in `VsVimShared`.
+
+## Housekeeping
+
+- Do not commit anything under `Binaries/` (build outputs, VSIX artifacts,
+  `xunitResults`, `Logs`).
+- NuGet restore happens via `msbuild /restore` / `Build.cmd`; cache is
+  `NUGET_PACKAGES` or `%UserProfile%\.nuget\packages`.
+- When bumping the version, update `Src/VimCore/Constants.fs` and all three
+  `Src/VsVim20*/source.extension.vsixmanifest` files together — `Test-Version`
+  enforces this.
+- Auxiliary root docs `TEXT_OBJECTS_README.md`, `TEXT_OBJECTS_FEATURE_STATUS.md`
+  and `TEXT_OBJECTS_QUICK_REFERENCE.md` describe recently added text-object
+  motion support (`vi(`, `va{`, ...); `test_vi_command.cs` is a scratch buffer
+  for manually exercising those motions. Treat them as working notes, not
+  authoritative docs. New permanent documentation belongs under `Documentation/`.
 
 ## Quick Command Reference
+
 - Build Debug: `Build.cmd`
 - Build Release: `Build.cmd -config Release`
 - Build + Test: `Build.cmd -test`
 - Tests only: `powershell -ExecutionPolicy ByPass -NoProfile -command "& Scripts/Build.ps1 -test"`
 - Extra verification: `powershell -ExecutionPolicy ByPass -NoProfile -command "& Scripts/Build.ps1 -testExtra"`
-- Single test: `Binaries/Debug/VimCoreTest2022/net472/xunit.console.x86.exe Binaries/Debug/VimCoreTest2022/net472/Vim.Core.2022.UnitTest.dll -method Namespace.Class.Test`
+- Single test: see "Running a single test" above.
 
-## Final Reminders
-- Match surrounding style in the file you edit (spacing, naming, patterns).
-- Keep changes minimal and scoped; avoid drive-by refactors unless asked.
-- Document non-obvious logic with brief comments only when necessary.
-- Verify paths and VS target versions before invoking scripts to avoid long rebuilds.
+## Good Agent Habits
+
+- Before committing: run at least the targeted tests for the touched area; for
+  packaging/manifest changes also run `-testExtra`.
+- Respect existing uncommitted user changes; never run destructive git commands
+  (`reset --hard`, force push) unless explicitly asked.
+- Verify paths and VS target versions before invoking scripts to avoid long
+  rebuilds.
