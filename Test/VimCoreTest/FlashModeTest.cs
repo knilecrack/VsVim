@@ -197,5 +197,51 @@ namespace Vim.UnitTest
             _mode.Process('q');
             Assert.True(_mode.Matches.Length <= 26);
         }
+
+        [WpfFact]
+        public void FindCharForward_OnlyForwardMatches()
+        {
+            Create("x mid x", "x end x");
+            _textView.Caret.MoveTo(_textBuffer.GetPoint(2));
+            _mode.OnEnter(VimUtil.CreateFlashArgument(FlashKind.FindCharForward));
+            _mode.Process('x');
+            Assert.All(_mode.Matches, m => Assert.True(m.Span.Start.Position > 2));
+        }
+
+        [WpfFact]
+        public void FindCharBackward_OnlyBackwardMatches()
+        {
+            Create("x mid x");
+            _textView.Caret.MoveTo(_textBuffer.GetPoint(6));
+            _mode.OnEnter(VimUtil.CreateFlashArgument(FlashKind.FindCharBackward));
+            _mode.Process('x');
+            Assert.Single(_mode.Matches);
+            Assert.Equal(0, _mode.Matches[0].Span.Start.Position);
+        }
+
+        [WpfFact]
+        public void FindChar_ExtraCharsAfterTargetIgnored()
+        {
+            Create("x a x");
+            _mode.OnEnter(VimUtil.CreateFlashArgument(FlashKind.FindCharForward));
+            _mode.Process('x');
+            var count = _mode.Matches.Length;
+            _mode.Process('z'); // not a label, not the first char: ignored
+            Assert.Equal(count, _mode.Matches.Length);
+        }
+
+        [WpfFact]
+        public void TillCharForward_JumpsBeforeMatch()
+        {
+            Create("a x b x");
+            _textView.Caret.MoveTo(_textBuffer.GetPoint(0));
+            _mode.OnEnter(VimUtil.CreateFlashArgument(FlashKind.TillCharForward));
+            _mode.Process('x');
+            var target = _mode.Matches[0];
+            _operations.Setup(x => x.MoveCaretToPoint(It.IsAny<SnapshotPoint>(), ViewFlags.Standard));
+            _mode.Process(target.Label[0]);
+            _operations.Verify(x => x.MoveCaretToPoint(
+                It.Is<SnapshotPoint>(p => p.Position == target.Span.Start.Position - 1), ViewFlags.Standard), Times.Once);
+        }
     }
 }

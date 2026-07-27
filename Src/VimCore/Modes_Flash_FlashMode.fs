@@ -74,7 +74,14 @@ type internal FlashMode
             matches
             |> List.filter (fun span -> span.Start.Position <> caretPosition)
             |> List.sortBy (fun span -> abs (span.Start.Position - caretPosition))
-        | _ -> matches
+        | FlashKind.FindCharForward | FlashKind.TillCharForward ->
+            matches
+            |> List.filter (fun span -> span.Start.Position > caretPosition)
+            |> List.sortBy (fun span -> span.Start.Position)
+        | FlashKind.FindCharBackward | FlashKind.TillCharBackward ->
+            matches
+            |> List.filter (fun span -> span.Start.Position < caretPosition)
+            |> List.sortByDescending (fun span -> span.Start.Position)
 
     /// Assign labels to the ordered matches, keeping previously assigned
     /// labels stable while the match is still present.  Matches beyond the
@@ -130,9 +137,20 @@ type internal FlashMode
     member x.CanProcess (keyInput: KeyInput) =
         KeyInputUtil.IsCore keyInput && not keyInput.IsMouseKey
 
-    /// Jump the caret to the given match and end the session
+    /// Jump the caret to the given match and end the session.  Till kinds
+    /// land one position before/after the match, clamped to the match line
     member x.JumpTo (flashMatch: FlashMatch) =
-        _operations.MoveCaretToPoint flashMatch.Span.Start ViewFlags.Standard
+        let point = flashMatch.Span.Start
+        let point =
+            match _kind with
+            | FlashKind.TillCharForward ->
+                let line = SnapshotPointUtil.GetContainingLine point
+                if point.Position > line.Start.Position then point.Subtract(1) else point
+            | FlashKind.TillCharBackward ->
+                let line = SnapshotPointUtil.GetContainingLine point
+                if point.Position < line.End.Position then point.Add(1) else point
+            | _ -> point
+        _operations.MoveCaretToPoint point ViewFlags.Standard
         x.EndSession()
         ProcessResult.Handled (ModeSwitch.SwitchMode ModeKind.Normal)
 
@@ -162,8 +180,16 @@ type internal FlashMode
                 match labelMatch with
                 | Some flashMatch -> x.JumpTo flashMatch
                 | None ->
-                    _searchText <- _searchText + string c
-                    x.Recompute()
+                    match _kind with
+                    | FlashKind.Search ->
+                        _searchText <- _searchText + string c
+                        x.Recompute()
+                    | _ ->
+                        // Find kinds take a single target char; further
+                        // non-label chars are ignored
+                        if StringUtil.IsNullOrEmpty _searchText then
+                            _searchText <- string c
+                            x.Recompute()
                     ProcessResult.Handled ModeSwitch.NoSwitch
 
     member x.OnEnter (arg: ModeArgument) =
