@@ -50,6 +50,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Implementation\MarkGlyph\MarkGlyphTag.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Implementation\MarkGlyph\MarkGlyphTaggerSource.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Implementation\MarkGlyph\MarkGlyphTaggerSourceFactory.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Implementation\FlashGlyph\FlashGlyphFactory.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Implementation\FlashGlyph\FlashGlyphFactoryProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Implementation\Misc\AlternateKeyUtil.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Implementation\Misc\ClipboardDevice.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Implementation\Misc\DebugUtil.cs" />
