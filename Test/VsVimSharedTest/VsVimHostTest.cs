@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using EnvDTE;
 using Vim.EditorHost;
@@ -149,7 +149,7 @@ namespace Vim.VisualStudio.UnitTest
                 vim.SetupGet(x => x.GlobalSettings).Returns(globalSettings.Object);
                 _hostRaw.VimCreated(vim.Object);
 
-                var command = _factory.Create<EnvDTE.Command>()
+                var command = _factory.Create<EnvDTE.Command>();
                 command.SetupGet(x => x.Name).Returns("Build.BuildSolution");
                 var commands = _factory.Create<EnvDTE.Commands>();
                 commands.Setup(x => x.GetEnumerator()).Returns(new List<EnvDTE.Command> { command.Object }.GetEnumerator());
