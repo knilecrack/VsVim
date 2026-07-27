@@ -229,6 +229,7 @@ Most registers that vim automatically manages, are supported.
 - normal: execute key sequence in normal mode
 - registers
 - cwindow
+- :Flash [-f|-F|-t|-T] - flash-style labeled jump navigation over the visible text (bind e.g. :nmap s :Flash<CR>)
 
 ## Misc
 
