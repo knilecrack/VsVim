@@ -75,6 +75,8 @@
     <Compile Include="Modes_Visual_SelectMode.fs" />
     <Compile Include="Modes_SubstituteConfirm_SubstituteConfirmMode.fsi" />
     <Compile Include="Modes_SubstituteConfirm_SubstituteConfirmMode.fs" />
+    <Compile Include="Modes_Flash_FlashMode.fsi" />
+    <Compile Include="Modes_Flash_FlashMode.fs" />
     <Compile Include="IncrementalSearch.fsi" />
     <Compile Include="IncrementalSearch.fs" />
     <Compile Include="CommandUtil.fsi" />

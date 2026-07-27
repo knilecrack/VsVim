@@ -291,6 +291,7 @@ type internal VimBuffer
     member x.SelectLineMode = _modeMap.GetMode ModeKind.SelectLine :?> ISelectMode
     member x.SelectBlockMode = _modeMap.GetMode ModeKind.SelectBlock :?> ISelectMode
     member x.SubstituteConfirmMode = _modeMap.GetMode ModeKind.SubstituteConfirm :?> ISubstituteConfirmMode
+    member x.FlashMode = _modeMap.GetMode ModeKind.Flash :?> IFlashMode
     member x.DisabledMode = _modeMap.GetMode ModeKind.Disabled :?> IDisabledMode
     member x.ExternalEditMode = _modeMap.GetMode ModeKind.ExternalEdit 
 
@@ -835,6 +836,7 @@ type internal VimBuffer
         member x.SelectLineMode = x.SelectLineMode
         member x.SelectBlockMode = x.SelectBlockMode
         member x.SubstituteConfirmMode = x.SubstituteConfirmMode
+        member x.FlashMode = x.FlashMode
         member x.ExternalEditMode = x.ExternalEditMode
         member x.DisabledMode = x.DisabledMode
         member x.AllModes = _modeMap.Modes

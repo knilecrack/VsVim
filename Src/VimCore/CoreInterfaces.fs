@@ -1279,6 +1279,7 @@ type ModeKind =
     | SelectLine = 10 
     | SelectBlock = 11
     | ExternalEdit = 12
+    | Flash = 13
 
     /// Mode when Vim is disabled.  It won't interact with events it otherwise
     /// would such as selection changes
@@ -2683,6 +2684,25 @@ type VisualInsertKind =
     /// start of the primary span
     | EndOfLine
 
+/// The kind of session to run when Flash mode is entered
+[<RequireQualifiedAccess>]
+type FlashKind =
+
+    /// Incrementally typed string search over the visible text
+    | Search
+
+    /// Single char search in the visible text after the caret ('f')
+    | FindCharForward
+
+    /// Single char search in the visible text before the caret ('F')
+    | FindCharBackward
+
+    /// Like FindCharForward but the jump lands before the match ('t')
+    | TillCharForward
+
+    /// Like FindCharBackward but the jump lands after the match ('T')
+    | TillCharBackward
+
 [<RequireQualifiedAccess>]
 type ModeArgument =
     | None
@@ -2719,6 +2739,9 @@ type ModeArgument =
     /// Cancel any operation that is in-progress, such as refactoring
     | CancelOperation
 
+    /// Enter flash mode with the given session kind
+    | Flash of FlashKind: FlashKind
+
 with
 
     /// Extract any linked undo transaction from the mode argument
@@ -2733,6 +2756,7 @@ with
         | ModeArgument.Substitute _ -> Option.None
         | ModeArgument.PartialCommand _ -> Option.None
         | ModeArgument.CancelOperation -> Option.None
+        | ModeArgument.Flash _ -> Option.None
 
 
     /// Complete any embedded linked undo transaction
@@ -5834,6 +5858,9 @@ and IVimBuffer =
     /// ISubstituteConfirmDoe instance for substitute confirm mode
     abstract SubstituteConfirmMode: ISubstituteConfirmMode
 
+    /// IFlashMode instance for flash mode
+    abstract FlashMode: IFlashMode
+
     /// IMode instance for external edits
     abstract ExternalEditMode: IMode
 
@@ -6100,6 +6127,30 @@ and ISubstituteConfirmMode =
     abstract CurrentMatchChanged: IEvent<SnapshotSpan option> 
 
     inherit IMode 
+
+/// A single labeled match in a flash session
+and FlashMatch = {
+
+    /// The span of the matched text
+    Span: SnapshotSpan
+
+    /// The label which jumps to this match
+    Label: string
+}
+
+and IFlashMode =
+
+    /// The current search text (FlashKind.Search) or target char (find kinds)
+    abstract SearchText: string
+
+    /// The current set of labeled matches
+    abstract Matches: FlashMatch list
+
+    /// Raised when SearchText or Matches change, and when the session ends
+    [<CLIEvent>]
+    abstract MatchesChanged: IDelegateEvent<System.EventHandler>
+
+    inherit IMode
 
 [<Extension>]
 module VimExtensions = 
