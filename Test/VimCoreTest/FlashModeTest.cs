@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Moq;
@@ -99,6 +101,45 @@ namespace Vim.UnitTest
             _mode.OnEnter(VimUtil.CreateFlashArgument(FlashKind.Search));
             _mode.Process('C');
             Assert.Single(_mode.Matches);
+        }
+
+        [WpfFact]
+        public void Labels_AssignedByDistanceFromCaret()
+        {
+            Create("x a x", "x a x");
+            _textView.Caret.MoveTo(_textBuffer.GetLine(0).Start);
+            _mode.OnEnter(VimUtil.CreateFlashArgument(FlashKind.Search));
+            _mode.Process('x');
+            // Caret is on the first 'x'; nearest remaining match gets "a".
+            Assert.Equal("a", _mode.Matches[0].Label);
+            Assert.Equal("s", _mode.Matches[1].Label);
+        }
+
+        [WpfFact]
+        public void Labels_StableWhileNarrowing()
+        {
+            Create("ab ac ad");
+            // Move the caret off the "ab" match at position 0 so it is not
+            // excluded, but keep it close so "ab" is ordered first.
+            _textView.Caret.MoveTo(_textBuffer.GetPoint(1));
+            _mode.OnEnter(VimUtil.CreateFlashArgument(FlashKind.Search));
+            _mode.Process('a');
+            var firstLabels = _mode.Matches.Select(m => Tuple.Create(m.Span.Start.Position, m.Label)).ToList();
+            _mode.Process('b');
+            Assert.Single(_mode.Matches);
+            Assert.Equal(firstLabels[0].Item2, _mode.Matches[0].Label);
+        }
+
+        [WpfFact]
+        public void Labels_CappedByAlphabet()
+        {
+            // 30 matches, 26 labels: 4 matches get no label and are dropped
+            // from the labeled list.
+            var line = string.Join(" ", Enumerable.Repeat("q", 30));
+            Create(line);
+            _mode.OnEnter(VimUtil.CreateFlashArgument(FlashKind.Search));
+            _mode.Process('q');
+            Assert.True(_mode.Matches.Length <= 26);
         }
     }
 }

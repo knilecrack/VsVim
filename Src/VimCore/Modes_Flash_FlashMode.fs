@@ -76,13 +76,41 @@ type internal FlashMode
             |> List.sortBy (fun span -> abs (span.Start.Position - caretPosition))
         | _ -> matches
 
+    /// Assign labels to the ordered matches, keeping previously assigned
+    /// labels stable while the match is still present.  Matches beyond the
+    /// label alphabet are dropped
+    member x.AssignLabels (ordered: SnapshotSpan list): FlashMatch list =
+        let usedLabels = System.Collections.Generic.HashSet<char>()
+        let result = ResizeArray<FlashMatch>()
+        let mutable labelIndex = 0
+        for span in ordered do
+            let position = span.Start.Position
+            match Map.tryFind position _labelMap with
+            | Some label ->
+                usedLabels.Add label |> ignore
+                result.Add { Span = span; Label = string label }
+            | None ->
+                let mutable label: char option = None
+                while labelIndex < LabelChars.Length && label.IsNone do
+                    let candidate = LabelChars.[labelIndex]
+                    labelIndex <- labelIndex + 1
+                    if not (usedLabels.Contains candidate) then
+                        label <- Some candidate
+                match label with
+                | Some c ->
+                    usedLabels.Add c |> ignore
+                    _labelMap <- Map.add position c _labelMap
+                    result.Add { Span = span; Label = string c }
+                | None -> ()
+        List.ofSeq result
+
     /// Recompute matches and labels for the current search text.  This is
     /// the single update path; it always raises MatchesChanged
     member x.Recompute () =
         let ordered = x.FindMatches _searchText |> x.OrderMatches
         let currentPositions = ordered |> List.map (fun span -> span.Start.Position) |> Set.ofList
         _labelMap <- _labelMap |> Map.filter (fun position _ -> Set.contains position currentPositions)
-        _matches <- ordered |> List.map (fun span -> { Span = span; Label = "" })
+        _matches <- x.AssignLabels ordered
         _matchesChanged.Trigger this
 
     member x.EndSession () =
