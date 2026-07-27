@@ -1695,6 +1695,55 @@ let x = 42
             }
         }
 
+        public sealed class FlashTest : ParserTest
+        {
+            [Fact]
+            public void Flash_NoFlag_IsSearch()
+            {
+                var lineCommand = ParseLineCommand("flash");
+                var kind = Assert.IsType<LineCommand.Flash>(lineCommand).FlashKind;
+                Assert.Equal(FlashKind.Search, kind);
+            }
+
+            [Fact]
+            public void Flash_DashF_IsFindCharForward()
+            {
+                var lineCommand = ParseLineCommand("flash -f");
+                var kind = Assert.IsType<LineCommand.Flash>(lineCommand).FlashKind;
+                Assert.Equal(FlashKind.FindCharForward, kind);
+            }
+
+            [Fact]
+            public void Flash_DashCapitalF_IsFindCharBackward()
+            {
+                var lineCommand = ParseLineCommand("flash -F");
+                var kind = Assert.IsType<LineCommand.Flash>(lineCommand).FlashKind;
+                Assert.Equal(FlashKind.FindCharBackward, kind);
+            }
+
+            [Fact]
+            public void Flash_DashT_IsTillCharForward()
+            {
+                var lineCommand = ParseLineCommand("flash -t");
+                var kind = Assert.IsType<LineCommand.Flash>(lineCommand).FlashKind;
+                Assert.Equal(FlashKind.TillCharForward, kind);
+            }
+
+            [Fact]
+            public void Flash_DashCapitalT_IsTillCharBackward()
+            {
+                var lineCommand = ParseLineCommand("flash -T");
+                var kind = Assert.IsType<LineCommand.Flash>(lineCommand).FlashKind;
+                Assert.Equal(FlashKind.TillCharBackward, kind);
+            }
+
+            [Fact]
+            public void Flash_InvalidFlag_IsParseError()
+            {
+                AssertParseLineCommandError("flash -x", Resources.Parser_Error);
+            }
+        }
+
         public sealed class Misc : ParserTest
         {
             /// <summary>

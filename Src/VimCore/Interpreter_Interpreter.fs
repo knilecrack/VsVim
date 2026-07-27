@@ -2337,6 +2337,10 @@ type VimInterpreter
             TextViewUtil.ClearSelection _textView
             TextViewUtil.MoveCaretToVirtualPoint _textView start
 
+    /// Enter flash mode for the given session kind
+    member x.RunFlash kind =
+        _vimBuffer.SwitchMode ModeKind.Flash (ModeArgument.Flash kind) |> ignore
+
     member x.RunWrite lineRange hasBang fileOptionList filePath =
         x.RunWithLineRangeOrDefault lineRange DefaultLineRange.EntireBuffer (fun lineRange ->
 
@@ -2435,6 +2439,7 @@ type VimInterpreter
         | LineCommand.FunctionStart _ -> cantRun ()
         | LineCommand.FunctionEnd -> cantRun ()
         | LineCommand.Files -> x.RunFiles()
+        | LineCommand.Flash kind -> x.RunFlash kind
         | LineCommand.Fold lineRange -> x.RunFold lineRange
         | LineCommand.Global (lineRange, pattern, matchPattern, lineCommand) -> x.RunGlobal lineRange pattern matchPattern lineCommand
         | LineCommand.Help subject -> x.RunHelp subject

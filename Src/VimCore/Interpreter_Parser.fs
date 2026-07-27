@@ -143,6 +143,7 @@ and [<Sealed>] internal Parser
         ("endfunction", "endf")
         ("endif", "en")
         ("exit", "exi")
+        ("flash", "flash")
         ("fold", "fo")
         ("function", "fu")
         ("global", "g")
@@ -922,6 +923,7 @@ and [<Sealed>] internal Parser
             | LineCommand.ElseIf _ -> noRangeCommand
             | LineCommand.Execute _ -> noRangeCommand
             | LineCommand.Files -> noRangeCommand
+            | LineCommand.Flash _ -> noRangeCommand
             | LineCommand.Fold lineRange -> LineCommand.Fold lineRange
             | LineCommand.Function _ -> noRangeCommand
             | LineCommand.FunctionEnd -> noRangeCommand
@@ -2007,6 +2009,18 @@ and [<Sealed>] internal Parser
             let argument = x.ParseRestOfLine()
             LineCommand.HostCommand (hasBang, command, argument)
 
+    /// Parse out a flash command.  Takes an optional flag: -f, -F, -t or -T.
+    /// With no flag it starts a flash search
+    member x.ParseFlash() =
+        x.SkipBlanks()
+        match x.ParseRestOfLine() with
+        | "" -> LineCommand.Flash FlashKind.Search
+        | "-f" -> LineCommand.Flash FlashKind.FindCharForward
+        | "-F" -> LineCommand.Flash FlashKind.FindCharBackward
+        | "-t" -> LineCommand.Flash FlashKind.TillCharForward
+        | "-T" -> LineCommand.Flash FlashKind.TillCharBackward
+        | _ -> x.ParseError Resources.Parser_Error
+
     member x.ParseWrite lineRange = 
         let hasBang = x.ParseBang()
         x.SkipBlanks()
@@ -2634,6 +2648,7 @@ and [<Sealed>] internal Parser
                 | "endif" -> noRange x.ParseIfEnd
                 | "exit" -> x.ParseQuitAndWrite lineRange
                 | "files" -> noRange x.ParseFiles
+                | "flash" -> x.ParseFlash()
                 | "fold" -> x.ParseFold lineRange
                 | "function" -> noRange x.ParseFunctionStart
                 | "global" -> x.ParseGlobal lineRange

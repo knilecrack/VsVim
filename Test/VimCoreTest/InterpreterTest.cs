@@ -111,6 +111,25 @@ namespace Vim.UnitTest
             }
         }
 
+        public sealed class FlashTest : InterpreterTest
+        {
+            [WpfFact]
+            public void NoFlag_SwitchesToFlashMode()
+            {
+                Create("cat", "dog", "fish", "tree");
+                ParseAndRun("flash");
+                Assert.Equal(ModeKind.Flash, _vimBuffer.ModeKind);
+            }
+
+            [WpfFact]
+            public void DashF_SwitchesToFlashMode()
+            {
+                Create("cat", "dog", "fish", "tree");
+                ParseAndRun("flash -f");
+                Assert.Equal(ModeKind.Flash, _vimBuffer.ModeKind);
+            }
+        }
+
         public sealed class CopyTest : InterpreterTest
         {
             /// <summary>

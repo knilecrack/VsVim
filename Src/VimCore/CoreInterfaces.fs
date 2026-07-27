@@ -2684,25 +2684,6 @@ type VisualInsertKind =
     /// start of the primary span
     | EndOfLine
 
-/// The kind of session to run when Flash mode is entered
-[<RequireQualifiedAccess>]
-type FlashKind =
-
-    /// Incrementally typed string search over the visible text
-    | Search
-
-    /// Single char search in the visible text after the caret ('f')
-    | FindCharForward
-
-    /// Single char search in the visible text before the caret ('F')
-    | FindCharBackward
-
-    /// Like FindCharForward but the jump lands before the match ('t')
-    | TillCharForward
-
-    /// Like FindCharBackward but the jump lands after the match ('T')
-    | TillCharBackward
-
 [<RequireQualifiedAccess>]
 type ModeArgument =
     | None
