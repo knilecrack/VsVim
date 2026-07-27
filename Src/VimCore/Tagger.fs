@@ -123,6 +123,79 @@ type internal IncrementalSearchTaggerProvider
             else
                 null
 
+/// Tag carrying the label text for a flash match
+type FlashLabelTag (chars: string) =
+    member x.Chars = chars
+    interface IGlyphTag
+
+/// Tagger for the labels of an active flash session
+type FlashTaggerSource (_vimBuffer: IVimBuffer) as this =
+
+    let _flashMode = _vimBuffer.FlashMode
+    let _eventHandlers = DisposableBag()
+    let _changed = StandardEvent()
+    let mutable _matches: FlashMatch list = []
+
+    static let EmptyTagList = ReadOnlyCollection<ITagSpan<FlashLabelTag>>([| |])
+
+    do
+        let raiseChanged () = _changed.Trigger this
+
+        _flashMode.MatchesChanged
+        |> Observable.subscribe (fun _ ->
+            // Update before raising; the editor can call back synchronously
+            _matches <- _flashMode.Matches
+            raiseChanged())
+        |> _eventHandlers.Add
+
+    member x.GetTags (span: SnapshotSpan) =
+        match _matches with
+        | [] -> EmptyTagList
+        | _ ->
+            let snapshot = span.Snapshot
+            let list = ResizeArray<ITagSpan<FlashLabelTag>>()
+            for flashMatch in _matches do
+                if flashMatch.Span.Snapshot = snapshot then
+                    let startSpan = SnapshotSpan(flashMatch.Span.Start, 0)
+                    if span.Contains(startSpan) then
+                        let tag = FlashLabelTag(flashMatch.Label)
+                        list.Add(TagSpan(startSpan, tag) :> ITagSpan<FlashLabelTag>)
+            ReadOnlyCollection<ITagSpan<FlashLabelTag>>(list)
+
+    interface IBasicTaggerSource<FlashLabelTag> with
+        member x.GetTags span = x.GetTags span
+        [<CLIEvent>]
+        member x.Changed = _changed.Publish
+
+    interface System.IDisposable with
+        member x.Dispose() = _eventHandlers.DisposeAll()
+
+[<Export(typeof<IViewTaggerProvider>)>]
+[<ContentType(VimConstants.AnyContentType)>]
+[<TextViewRole(PredefinedTextViewRoles.Editable)>]
+[<TagType(typeof<FlashLabelTag>)>]
+type internal FlashTaggerProvider
+    [<ImportingConstructor>]
+    (
+        _vim: IVim
+    ) =
+
+    let _key = obj()
+
+    interface IViewTaggerProvider with
+        member x.CreateTagger<'T when 'T :> ITag> (textView: ITextView, textBuffer) =
+            if textView.TextBuffer = textBuffer then
+                match _vim.GetOrCreateVimBufferForHost textView with
+                | None -> null
+                | Some vimBuffer ->
+                    let func () =
+                        let taggerSource = new FlashTaggerSource(vimBuffer)
+                        taggerSource :> IBasicTaggerSource<FlashLabelTag>
+                    let tagger = TaggerUtil.CreateBasicTagger textView.Properties _key func
+                    tagger :> obj :?> ITagger<'T>
+            else
+                null
+
 type HighlightSearchData = {
     Pattern: string
     VimRegexOptions: VimRegexOptions
