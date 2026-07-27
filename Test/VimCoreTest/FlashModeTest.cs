@@ -131,6 +131,62 @@ namespace Vim.UnitTest
         }
 
         [WpfFact]
+        public void TypeLabel_JumpsAndSwitchesToNormal()
+        {
+            Create("cat", "dog", "cat");
+            _mode.OnEnter(VimUtil.CreateFlashArgument(FlashKind.Search));
+            _mode.Process('c');
+            var target = _mode.Matches[0];
+            var result = _mode.Process(target.Label[0]);
+            Assert.True(result.IsSwitchMode(ModeKind.Normal));
+            _operations.Verify(x => x.MoveCaretToPoint(target.Span.Start, ViewFlags.Standard), Times.Once);
+            Assert.Empty(_mode.Matches);
+        }
+
+        [WpfFact]
+        public void Enter_JumpsToNearestMatch()
+        {
+            Create("cat", "dog", "cat");
+            _mode.OnEnter(VimUtil.CreateFlashArgument(FlashKind.Search));
+            _mode.Process('c');
+            var target = _mode.Matches[0];
+            var result = _mode.Process(KeyInputUtil.EnterKey);
+            Assert.True(result.IsSwitchMode(ModeKind.Normal));
+            _operations.Verify(x => x.MoveCaretToPoint(target.Span.Start, ViewFlags.Standard), Times.Once);
+        }
+
+        [WpfFact]
+        public void Backspace_ShrinksSearch()
+        {
+            Create("cab", "cat");
+            // Move the caret off position 0 so the "cab" match is not excluded.
+            _textView.Caret.MoveTo(_textBuffer.GetPoint(_textBuffer.CurrentSnapshot.Length));
+            _mode.OnEnter(VimUtil.CreateFlashArgument(FlashKind.Search));
+            _mode.Process('c');
+            _mode.Process('a');
+            Assert.Equal(2, _mode.Matches.Length);
+            _mode.Process(KeyNotationUtil.StringToKeyInput("<BS>"));
+            Assert.Equal("c", _mode.SearchText);
+        }
+
+        [WpfFact]
+        public void Labels_RemainDistinctAfterCaretMove()
+        {
+            Create("xy xy xy");
+            _textView.Caret.MoveTo(_textBuffer.GetPoint(0));
+            _mode.OnEnter(VimUtil.CreateFlashArgument(FlashKind.Search));
+            _mode.Process('x');
+            _mode.Process('y');
+            // Moving the caret reorders the matches by distance; a fresh match
+            // can then be ordered before a stable-labeled one and must not
+            // steal its label.
+            _textView.Caret.MoveTo(_textBuffer.GetPoint(1));
+            _mode.Process(KeyNotationUtil.StringToKeyInput("<BS>"));
+            var labels = _mode.Matches.Select(m => m.Label).ToList();
+            Assert.Equal(labels.Count, labels.Distinct().Count());
+        }
+
+        [WpfFact]
         public void Labels_CappedByAlphabet()
         {
             // 30 matches, 26 labels: 4 matches get no label and are dropped

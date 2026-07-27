@@ -81,6 +81,7 @@ type internal FlashMode
     /// label alphabet are dropped
     member x.AssignLabels (ordered: SnapshotSpan list): FlashMatch list =
         let usedLabels = System.Collections.Generic.HashSet<char>()
+        _labelMap |> Map.iter (fun _ label -> usedLabels.Add label |> ignore)
         let result = ResizeArray<FlashMatch>()
         let mutable labelIndex = 0
         for span in ordered do
@@ -90,11 +91,18 @@ type internal FlashMode
                 usedLabels.Add label |> ignore
                 result.Add { Span = span; Label = string label }
             | None ->
+                // Do not label a match with the character that follows the
+                // search text at that match; that char must stay free so the
+                // user can keep narrowing the search (flash.nvim behavior)
+                let charAfter =
+                    let afterPosition = span.End.Position
+                    if afterPosition < span.Snapshot.Length then Some (span.Snapshot.[afterPosition])
+                    else None
                 let mutable label: char option = None
                 while labelIndex < LabelChars.Length && label.IsNone do
                     let candidate = LabelChars.[labelIndex]
                     labelIndex <- labelIndex + 1
-                    if not (usedLabels.Contains candidate) then
+                    if not (usedLabels.Contains candidate) && Some candidate <> charAfter then
                         label <- Some candidate
                 match label with
                 | Some c ->
@@ -122,11 +130,21 @@ type internal FlashMode
     member x.CanProcess (keyInput: KeyInput) =
         KeyInputUtil.IsCore keyInput && not keyInput.IsMouseKey
 
+    /// Jump the caret to the given match and end the session
+    member x.JumpTo (flashMatch: FlashMatch) =
+        _operations.MoveCaretToPoint flashMatch.Span.Start ViewFlags.Standard
+        x.EndSession()
+        ProcessResult.Handled (ModeSwitch.SwitchMode ModeKind.Normal)
+
     member x.Process (keyInputData: KeyInputData) =
         let keyInput = keyInputData.KeyInput
         if keyInput = KeyInputUtil.EscapeKey then
             x.EndSession()
             ProcessResult.Handled (ModeSwitch.SwitchMode ModeKind.Normal)
+        elif keyInput = _enterKey then
+            match _matches with
+            | [] -> ProcessResult.Handled ModeSwitch.NoSwitch
+            | head :: _ -> x.JumpTo head
         elif keyInput = _backKey then
             if _searchText.Length > 0 then
                 _searchText <- _searchText.Substring(0, _searchText.Length - 1)
@@ -136,9 +154,17 @@ type internal FlashMode
             match keyInput.RawChar with
             | None -> ProcessResult.Handled ModeSwitch.NoSwitch
             | Some c ->
-                _searchText <- _searchText + string c
-                x.Recompute()
-                ProcessResult.Handled ModeSwitch.NoSwitch
+                // A typed label jumps once there is a search in progress;
+                // otherwise the char extends the search text
+                let labelMatch =
+                    if StringUtil.IsNullOrEmpty _searchText then None
+                    else _matches |> List.tryFind (fun m -> m.Label = string c)
+                match labelMatch with
+                | Some flashMatch -> x.JumpTo flashMatch
+                | None ->
+                    _searchText <- _searchText + string c
+                    x.Recompute()
+                    ProcessResult.Handled ModeSwitch.NoSwitch
 
     member x.OnEnter (arg: ModeArgument) =
         arg.CompleteAnyTransaction()
