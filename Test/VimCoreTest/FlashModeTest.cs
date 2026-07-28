@@ -187,15 +187,75 @@ namespace Vim.UnitTest
         }
 
         [WpfFact]
+        public void NoMatches_StaysInModeWithEmptyLabels()
+        {
+            Create("cat", "dog");
+            _mode.OnEnter(VimUtil.CreateFlashArgument(FlashKind.Search));
+            var result = _mode.Process('z');
+            Assert.Empty(_mode.Matches);
+            Assert.Equal("z", _mode.SearchText);
+            Assert.True(result.IsHandledNoSwitch());
+            // Still in flash mode: Escape is handled and switches to Normal
+            Assert.True(_mode.Process(KeyInputUtil.EscapeKey).IsSwitchMode(ModeKind.Normal));
+        }
+
+        [WpfFact]
+        public void Labels_RemainDistinctAfterBackspaceWiden()
+        {
+            Create("ab ac ad ae");
+            _textView.Caret.MoveTo(_textBuffer.GetPoint(_textBuffer.CurrentSnapshot.Length));
+            _mode.OnEnter(VimUtil.CreateFlashArgument(FlashKind.Search));
+            _mode.Process('a');
+            Assert.Equal(4, _mode.Matches.Length);
+            _mode.Process('b');
+            Assert.Single(_mode.Matches);
+            _mode.Process(KeyNotationUtil.StringToKeyInput("<BS>"));
+            Assert.Equal(4, _mode.Matches.Length);
+            var labels = _mode.Matches.Select(m => m.Label).ToList();
+            Assert.Equal(labels.Count, labels.Distinct().Count());
+        }
+
+        [WpfFact]
+        public void Jump_StaleSnapshot_EndsSessionWithoutMoving()
+        {
+            Create("cat", "dog", "cat");
+            _mode.OnEnter(VimUtil.CreateFlashArgument(FlashKind.Search));
+            _mode.Process('c');
+            var target = _mode.Matches[0];
+            // An external edit invalidates the snapshot the matches were
+            // computed against; the jump must not move the caret
+            _textBuffer.Replace(new Span(0, 0), "insert ");
+            var result = _mode.Process(target.Label[0]);
+            Assert.True(result.IsSwitchMode(ModeKind.Normal));
+            _operations.Verify(x => x.MoveCaretToPoint(It.IsAny<SnapshotPoint>(), It.IsAny<ViewFlags>()), Times.Never);
+            Assert.Empty(_mode.Matches);
+        }
+
+        [WpfFact]
+        public void TillCharBackward_JumpsAfterMatch()
+        {
+            Create("x a x");
+            _textView.Caret.MoveTo(_textBuffer.GetPoint(4));
+            _mode.OnEnter(VimUtil.CreateFlashArgument(FlashKind.TillCharBackward));
+            _mode.Process('x');
+            var target = _mode.Matches[0];
+            _operations.Setup(x => x.MoveCaretToPoint(It.IsAny<SnapshotPoint>(), ViewFlags.Standard));
+            _mode.Process(target.Label[0]);
+            _operations.Verify(x => x.MoveCaretToPoint(
+                It.Is<SnapshotPoint>(p => p.Position == target.Span.Start.Position + 1), ViewFlags.Standard), Times.Once);
+        }
+
+        [WpfFact]
         public void Labels_CappedByAlphabet()
         {
             // 30 matches, 26 labels: 4 matches get no label and are dropped
-            // from the labeled list.
+            // from the labeled list.  The caret sits on the first match so it
+            // is excluded, leaving 29 candidates for the 26 labels.
             var line = string.Join(" ", Enumerable.Repeat("q", 30));
             Create(line);
             _mode.OnEnter(VimUtil.CreateFlashArgument(FlashKind.Search));
             _mode.Process('q');
-            Assert.True(_mode.Matches.Length <= 26);
+            Assert.Equal(26, _mode.Matches.Length);
         }
 
         [WpfFact]

@@ -2648,7 +2648,7 @@ and [<Sealed>] internal Parser
                 | "endif" -> noRange x.ParseIfEnd
                 | "exit" -> x.ParseQuitAndWrite lineRange
                 | "files" -> noRange x.ParseFiles
-                | "flash" -> x.ParseFlash()
+                | "flash" -> noRange x.ParseFlash
                 | "fold" -> x.ParseFold lineRange
                 | "function" -> noRange x.ParseFunctionStart
                 | "global" -> x.ParseGlobal lineRange

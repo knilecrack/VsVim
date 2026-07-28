@@ -138,21 +138,27 @@ type internal FlashMode
         KeyInputUtil.IsCore keyInput && not keyInput.IsMouseKey
 
     /// Jump the caret to the given match and end the session.  Till kinds
-    /// land one position before/after the match, clamped to the match line
+    /// land one position before/after the match, clamped to the match line.
+    /// If the buffer changed mid-session the match span's snapshot is stale;
+    /// end the session without moving the caret
     member x.JumpTo (flashMatch: FlashMatch) =
-        let point = flashMatch.Span.Start
-        let point =
-            match _kind with
-            | FlashKind.TillCharForward ->
-                let line = SnapshotPointUtil.GetContainingLine point
-                if point.Position > line.Start.Position then point.Subtract(1) else point
-            | FlashKind.TillCharBackward ->
-                let line = SnapshotPointUtil.GetContainingLine point
-                if point.Position < line.End.Position then point.Add(1) else point
-            | _ -> point
-        _operations.MoveCaretToPoint point ViewFlags.Standard
-        x.EndSession()
-        ProcessResult.Handled (ModeSwitch.SwitchMode ModeKind.Normal)
+        if flashMatch.Span.Snapshot <> _textView.TextBuffer.CurrentSnapshot then
+            x.EndSession()
+            ProcessResult.Handled (ModeSwitch.SwitchMode ModeKind.Normal)
+        else
+            let point = flashMatch.Span.Start
+            let point =
+                match _kind with
+                | FlashKind.TillCharForward ->
+                    let line = SnapshotPointUtil.GetContainingLine point
+                    if point.Position > line.Start.Position then point.Subtract(1) else point
+                | FlashKind.TillCharBackward ->
+                    let line = SnapshotPointUtil.GetContainingLine point
+                    if point.Position < line.End.Position then point.Add(1) else point
+                | _ -> point
+            _operations.MoveCaretToPoint point ViewFlags.Standard
+            x.EndSession()
+            ProcessResult.Handled (ModeSwitch.SwitchMode ModeKind.Normal)
 
     member x.Process (keyInputData: KeyInputData) =
         let keyInput = keyInputData.KeyInput

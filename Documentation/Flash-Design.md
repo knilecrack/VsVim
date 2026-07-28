@@ -3,7 +3,7 @@
 Status: implemented (2026-07-27). See `Documentation/Flash-Implementation-Plan.md` for the task-by-task implementation plan.
 
 Implements flash.nvim-style jump navigation for VsVim: press a (user-mapped)
-trigger, type 1-2 search chars, all matches in the visible window get inline
+trigger, type 1-2 search chars, all matches in the visible window get
 letter labels, type a label to jump the caret there. Also an enhanced
 `f`/`F`/`t`/`T` variant that labels matches across all visible lines.
 
@@ -54,47 +54,52 @@ letter labels, type a label to jump the caret there. Also an enhanced
 
 F# core (`Src/VimCore/`):
 
-- `CoreInterfaces.fs` — add `ModeKind.Flash`; add `IFlashService` /
-  `IFlashSession` interfaces (next to `IIncrementalSearch`, ~line 4517).
-  Session exposes current `SearchText`, a `FlashMatch list` (span + label
-  string), and `Updated` / `SessionComplete` events.
-- `Modes_Flash_FlashMode.fs` (new) — the `IMode` implementation, shaped like
-  `SubstituteConfirmMode` (`Modes_SubstituteConfirm_SubstituteConfirmMode.fs`).
-  Registered in `Vim.fs` modeList (~line 296).
+- `CoreInterfaces.fs` — add `ModeKind.Flash` and `IFlashMode` (extends
+  `IMode`), exposed as `IVimBuffer.FlashMode`. The mode exposes the current
+  `SearchText`, a `FlashMatch list` (span + label string), and a single
+  `MatchesChanged` event raised on every recompute and on session end.
+- `Modes_Flash_FlashMode.fs` (new) — the `IFlashMode` implementation, shaped
+  like `SubstituteConfirmMode` (`Modes_SubstituteConfirm_SubstituteConfirmMode.fs`).
+  Registered in `Vim.fs` modeList (~line 302).
 - `Tagger.fs` — `FlashLabelTag : IGlyphTag` (carries the label string),
   `FlashTaggerSource : IBasicTaggerSource<FlashLabelTag>` + MEF provider
   (`IViewTaggerProvider`), cloned from the `MarkGlyphTaggerSource` /
-  `IncrementalSearchTaggerProvider` patterns.
-- `Modes_Normal_NormalMode.fs` / `CommandUtil.fs` — new `NormalCommand`s
-  (`FlashSearch`, `FlashFindChar` with direction/till flag) so the feature is
-  bindable through the standard `:map` command machinery.
+  `IncrementalSearchTaggerProvider` patterns. It subscribes to
+  `IVimBuffer.FlashMode.MatchesChanged`.
+
+Entry is Ex-command-only: `:Flash [-f|-F|-t|-T]` parses to
+`LineCommand.Flash FlashKind` (`Interpreter_Parser.fs`), which the
+interpreter turns into `ModeSwitch.SwitchModeWithArgument ModeKind.Flash`
+with `ModeArgument.Flash`. There is no `NormalCommand` for flash; users bind
+keys with `:nmap s :Flash<CR>`.
 
 C# (`Src/VimWpf/`):
 
 - `Implementation/FlashGlyph/` — `FlashGlyphFactoryProvider :
   IGlyphFactoryProvider` + `FlashGlyphFactory` rendering the label text with
-  a colored background (clone of `MarkGlyph/MarkGlyphFactoryProvider.cs`),
-  plus an `EditorFormatDefinition` for label colors.
+  a colored background (clone of `MarkGlyph/MarkGlyphFactoryProvider.cs`).
+  Label colors are hardcoded to `SystemColors.HighlightTextBrush` /
+  `SystemColors.HighlightBrush` (no `EditorFormatDefinition`).
 
 Tests:
 
-- `Test/VimCoreTest/FlashModeTest.fs` — mode logic and label assignment.
+- `Test/VimCoreTest/FlashModeTest.cs` — mode logic and label assignment.
 - `FlashTaggerSourceTest.cs` modeled on `IncrementalSearchTaggerSourceTest.cs`.
 
 ### State machine
 
-Entry: mapped key triggers `NormalCommand.FlashSearch` (or `FlashFindChar`)
-→ `CommandUtil` switches to `ModeKind.Flash` via
-`ModeSwitch.SwitchModeWithArgument` with a `ModeArgument` distinguishing
-Search vs FindChar(forward/backward, till flag).
+Entry: the user runs `:Flash [-f|-F|-t|-T]` (typically via a `:map` binding)
+→ the interpreter switches to `ModeKind.Flash` via
+`ModeSwitch.SwitchModeWithArgument` with a `ModeArgument.Flash` kind
+distinguishing Search vs FindChar(forward/backward, till flag).
 
 While active, `FlashMode.Process` per keystroke:
 
-1. `<Esc>` — cancel: session-complete, `SwitchMode ModeKind.Normal`.
+1. `<Esc>` — cancel: end the session, `SwitchMode ModeKind.Normal`.
 2. Printable char — append to `SearchText` (FindChar: first key sets the
-   target char), recompute, `HandledNeedMoreInput`.
+   target char), recompute, `Handled ModeSwitch.NoSwitch`.
 3. `<BS>` — remove last char, recompute.
-4. Char matching an assigned label — execute jump, session-complete, switch
+4. Char matching an assigned label — execute jump, end the session, switch
    to Normal. Label keys take precedence once the search text is non-empty.
 5. `<CR>` — jump to the nearest match.
 
@@ -108,25 +113,39 @@ Recompute pipeline (synchronous, imperative):
 - Assign labels greedily from the alphabet front; stability map keyed by
   position so a match keeps its label across narrows; matches beyond the
   alphabet get no label.
-- Push via `IFlashSession.Updated`; `FlashTaggerSource` dirties affected
+- Push via `IFlashMode.MatchesChanged`; `FlashTaggerSource` dirties affected
   spans → editor re-queries `GetTags` → glyph factory draws labels.
 
 Jump: `ICommonOperations.MoveCaretToPoint` to match start (till variants
-offset by one), then the session ends and labels disappear.
+offset by one), then the session ends and labels disappear. If the buffer
+changed mid-session (stale snapshot), the jump is abandoned: the session
+ends and the mode switches back to Normal without moving the caret.
 
 ### Edge cases
 
-- Zero matches → `IStatusUtil.OnError` message; stay in mode until `<Esc>`.
+- Zero matches → session stays active with no labels and no status message
+  (v1 simplification); `<Esc>` or `<BS>` back to empty text continues the
+  session.
 - More matches than labels → unlabeled matches; narrowing reveals them.
-- Buffer changes mid-session → `ITrackingSpan` tracking like other taggers.
+- Buffer changes mid-session → jumps to stale-snapshot matches are abandoned
+  (session ends without moving the caret).
 - Caret already on a match → that match is excluded from labeling.
 - `ModeKind` exhaustive matches to audit: `VimBuffer.fs` KeyRemapMode switch,
   `SelectionChangeTracker.fs`, command-margin/status display in
   VimWpf/VsVimShared. New kind shows "FLASH" status, `KeyRemapMode.None`.
 
+### Known limitations
+
+- Labels render in the editor's glyph margin (one per line) via the
+  `IGlyphTag` mechanism, not inline over each match. Lines with multiple
+  matches show all of that line's labels in the margin. An intra-text
+  adornment layer that draws each label directly over its match is possible
+  future work.
+
 ### Testing strategy
 
-- `FlashModeTest.fs`: label ordering/stability, narrowing, jump, cancel,
-  no-match, FindChar direction/till semantics, label-key precedence.
-- `FlashTaggerSourceTest.cs`: tag lifecycle from session events.
+- `FlashModeTest.cs`: label ordering/stability, narrowing, jump, cancel,
+  no-match, stale-snapshot jump guard, FindChar direction/till semantics,
+  label-key precedence.
+- `FlashTaggerSourceTest.cs`: tag lifecycle from `MatchesChanged` events.
 - All run in the shared `Test/VimCoreTest/` project → VS2019/2022/2026.

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.FSharp.Collections;
@@ -1741,6 +1741,20 @@ let x = 42
             public void Flash_InvalidFlag_IsParseError()
             {
                 AssertParseLineCommandError("flash -x", Resources.Parser_Error);
+            }
+
+            [Fact]
+            public void Flash_Abbreviation_NotSupported()
+            {
+                // The flash command must be typed in full; "fla" is not a
+                // valid abbreviation and fails to parse
+                AssertParseLineCommandError("fla", Resources.Parser_Error);
+            }
+
+            [Fact]
+            public void Flash_Range_IsParseError()
+            {
+                AssertParseLineCommandError("1flash", Resources.Parser_NoRangeAllowed);
             }
         }
 
