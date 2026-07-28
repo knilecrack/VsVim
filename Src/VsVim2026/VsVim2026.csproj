@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <ProductVersion>10.0.20307</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
@@ -83,11 +83,5 @@
   <Import Project="..\VimWpf\VimWpf.projitems" Label="Shared" />
   <ItemGroup>
     <PackageReference Update="Microsoft.CodeAnalysis.CSharp.Scripting" Version="5.0.0" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Update="Microsoft.VSSDK.BuildTools" Version="17.14.2120">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
   </ItemGroup>
 </Project>
