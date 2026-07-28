@@ -1706,6 +1706,22 @@ let x = 42
             }
 
             [Fact]
+            public void Flash_Uppercase_IsSearch()
+            {
+                var lineCommand = ParseLineCommand("Flash");
+                var kind = Assert.IsType<LineCommand.Flash>(lineCommand).FlashKind;
+                Assert.Equal(FlashKind.Search, kind);
+            }
+
+            [Fact]
+            public void Flash_UppercaseDashF_IsFindCharForward()
+            {
+                var lineCommand = ParseLineCommand("Flash -f");
+                var kind = Assert.IsType<LineCommand.Flash>(lineCommand).FlashKind;
+                Assert.Equal(FlashKind.FindCharForward, kind);
+            }
+
+            [Fact]
             public void Flash_DashF_IsFindCharForward()
             {
                 var lineCommand = ParseLineCommand("flash -f");

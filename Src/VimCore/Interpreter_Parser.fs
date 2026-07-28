@@ -144,6 +144,7 @@ and [<Sealed>] internal Parser
         ("endif", "en")
         ("exit", "exi")
         ("flash", "flash")
+        ("Flash", "Flash")
         ("fold", "fo")
         ("function", "fu")
         ("global", "g")
@@ -2649,6 +2650,7 @@ and [<Sealed>] internal Parser
                 | "exit" -> x.ParseQuitAndWrite lineRange
                 | "files" -> noRange x.ParseFiles
                 | "flash" -> noRange x.ParseFlash
+                | "Flash" -> noRange x.ParseFlash
                 | "fold" -> x.ParseFold lineRange
                 | "function" -> noRange x.ParseFunctionStart
                 | "global" -> x.ParseGlobal lineRange
