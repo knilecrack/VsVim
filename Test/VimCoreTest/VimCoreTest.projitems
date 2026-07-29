@@ -44,7 +44,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)FileSystemTest.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)FlashDimTaggerSourceTest.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)FlashModeTest.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)FlashTaggerSourceTest.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)FoldDataTest.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)FoldManagerTest.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)FuncUtil.cs" />
