@@ -22,6 +22,10 @@ namespace Vim.UI.Wpf.Implementation.FlashAdornment
             _vimBuffer = vimBuffer;
             _textView = textView;
             _layer = _textView.GetAdornmentLayer(adornmentLayerName);
+            if (_layer == null)
+            {
+                VimTrace.TraceError($"FlashAdornment: GetAdornmentLayer('{adornmentLayerName}') returned null");
+            }
 
             _vimBuffer.FlashMode.MatchesChanged += OnMatchesChanged;
             _vimBuffer.Closed += OnBufferClosed;
@@ -31,31 +35,54 @@ namespace Vim.UI.Wpf.Implementation.FlashAdornment
         {
             _vimBuffer.FlashMode.MatchesChanged -= OnMatchesChanged;
             _vimBuffer.Closed -= OnBufferClosed;
-            _layer.RemoveAllAdornments();
+            _layer?.RemoveAllAdornments();
         }
 
         private void OnMatchesChanged(object sender, EventArgs e)
         {
-            _layer.RemoveAllAdornments();
-
-            var snapshot = _textView.TextSnapshot;
-            foreach (var flashMatch in _vimBuffer.FlashMode.Matches)
+            try
             {
-                // The session computes matches on the snapshot which was
-                // current at the keystroke; skip anything stale
-                if (flashMatch.Span.Snapshot != snapshot)
+                if (_layer == null)
                 {
-                    continue;
+                    return;
                 }
 
-                var element = CreateLabelElement(flashMatch.Label);
-                _layer.AddAdornment(AdornmentPositioningBehavior.TextRelative, flashMatch.Span, null, element, null);
+                _layer.RemoveAllAdornments();
+
+                var snapshot = _textView.TextSnapshot;
+                var matches = _vimBuffer.FlashMode.Matches;
+                var added = 0;
+                foreach (var flashMatch in matches)
+                {
+                    // The session computes matches on the snapshot which was
+                    // current at the keystroke; skip anything stale
+                    if (flashMatch.Span.Snapshot != snapshot)
+                    {
+                        continue;
+                    }
+
+                    var element = CreateLabelElement(flashMatch.Label);
+                    if (_layer.AddAdornment(AdornmentPositioningBehavior.TextRelative, flashMatch.Span, null, element, null))
+                    {
+                        added++;
+                    }
+                    else
+                    {
+                        VimTrace.TraceInfo($"FlashAdornment: AddAdornment returned false for label '{flashMatch.Label}' at {flashMatch.Span.Start.Position}");
+                    }
+                }
+
+                VimTrace.TraceInfo($"FlashAdornment: {matches.Length} matches, {added} adornments added");
+            }
+            catch (Exception ex)
+            {
+                VimTrace.TraceError(ex);
             }
         }
 
         private UIElement CreateLabelElement(string label)
         {
-            var textProperties = _textView.FormattedLineSource.DefaultTextProperties;
+            var textProperties = _textView.FormattedLineSource?.DefaultTextProperties;
             return new Border
             {
                 Background = new SolidColorBrush(Color.FromRgb(37, 99, 235)),
@@ -64,8 +91,8 @@ namespace Vim.UI.Wpf.Implementation.FlashAdornment
                 {
                     Text = label,
                     Foreground = Brushes.White,
-                    FontFamily = textProperties.Typeface.FontFamily,
-                    FontSize = textProperties.FontRenderingEmSize,
+                    FontFamily = textProperties != null ? textProperties.Typeface.FontFamily : new FontFamily("Consolas"),
+                    FontSize = textProperties != null ? textProperties.FontRenderingEmSize : 14.0,
                     FontWeight = FontWeights.Bold,
                 },
             };
