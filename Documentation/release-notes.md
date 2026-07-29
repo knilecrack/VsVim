@@ -7,6 +7,7 @@ Features
     * '-help': Show usage information.
 * Improved error reporting for ':vsc' when a Visual Studio command fails to execute.
 * Flash-style jump navigation: ':Flash' shows labels on all matches in the visible text as you type; type a label to jump. ':Flash -f/-F/-t/-T' provides labeled f/F/t/T motions across all visible lines. Bind via .vsvimrc, e.g. ':nmap s :Flash<CR>'.
+* While a flash session is active the non-matching visible text is dimmed and matches are highlighted (flash.nvim backdrop effect). Colors are customizable via 'VsVim Flash Dim' and 'VsVim Flash Match' in Fonts and Colors.
 
 ### Version 2.8.0
 [Issues closed in 2.8.0 Milestone](https://github.com/VsVim/VsVim/milestone/49?closed=1)
