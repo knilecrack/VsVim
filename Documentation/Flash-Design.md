@@ -136,11 +136,12 @@ ends and the mode switches back to Normal without moving the caret.
 
 ### Known limitations
 
-- Labels render in the editor's glyph margin (one per line) via the
-  `IGlyphTag` mechanism, not inline over each match. Lines with multiple
-  matches show all of that line's labels in the margin. An intra-text
-  adornment layer that draws each label directly over its match is possible
-  future work.
+- ~~Labels render in the editor's glyph margin~~ **Superseded (2.11.0.7):**
+  labels now render directly over the matched text via a WPF adornment
+  layer (`Src/VimWpf/Implementation/FlashAdornment/`), driven by
+  `IFlashMode.MatchesChanged` — the PeasyMotion approach. The
+  `FlashLabelTag` tagger and glyph factory were removed; `FlashModeTest.cs`
+  covers the data side.
 
 ### Testing strategy
 
