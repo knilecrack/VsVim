@@ -15,6 +15,7 @@ type internal FlashMode
 
     let _vimTextBuffer = _vimBufferData.VimTextBuffer
     let _textView = _vimBufferData.TextView
+    let _vimData = _vimBufferData.Vim.VimData
     let _globalSettings = _vimTextBuffer.GlobalSettings
     let _matchesChanged = StandardEvent()
     let _backKey = KeyNotationUtil.StringToKeyInput "<BS>"
@@ -134,6 +135,27 @@ type internal FlashMode
         _labelMap <- Map.empty
         _matchesChanged.Trigger this
 
+    /// Record the session's search so it can be repeated after the jump:
+    /// find kinds via ';' and ',' (like native f/t), search kind via
+    /// 'n' and 'N' (like /).  Must be called before EndSession clears the
+    /// search text
+    member x.SaveSearchState () =
+        match _kind with
+        | FlashKind.Search ->
+            if not (StringUtil.IsNullOrEmpty _searchText) then
+                _vimData.LastSearchData <- SearchData(_searchText, SearchPath.Forward, _globalSettings.WrapScan)
+        | _ ->
+            if _searchText.Length = 1 then
+                let charSearch =
+                    match _kind with
+                    | FlashKind.FindCharForward | FlashKind.FindCharBackward -> CharSearchKind.ToChar
+                    | _ -> CharSearchKind.TillChar
+                let direction =
+                    match _kind with
+                    | FlashKind.FindCharForward | FlashKind.TillCharForward -> SearchPath.Forward
+                    | _ -> SearchPath.Backward
+                _vimData.LastCharSearch <- Some (charSearch, direction, _searchText.[0])
+
     member x.CanProcess (keyInput: KeyInput) =
         KeyInputUtil.IsCore keyInput && not keyInput.IsMouseKey
 
@@ -157,6 +179,7 @@ type internal FlashMode
                     if point.Position < line.End.Position then point.Add(1) else point
                 | _ -> point
             _operations.MoveCaretToPoint point ViewFlags.Standard
+            x.SaveSearchState()
             x.EndSession()
             ProcessResult.Handled (ModeSwitch.SwitchMode ModeKind.Normal)
 

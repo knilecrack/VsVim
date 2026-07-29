@@ -4,6 +4,7 @@ using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Moq;
 using Vim.EditorHost;
+using Vim.Extensions;
 using Vim.Modes.Flash;
 using Xunit;
 
@@ -302,6 +303,46 @@ namespace Vim.UnitTest
             _mode.Process(target.Label[0]);
             _operations.Verify(x => x.MoveCaretToPoint(
                 It.Is<SnapshotPoint>(p => p.Position == target.Span.Start.Position - 1), ViewFlags.Standard), Times.Once);
+        }
+
+        [WpfFact]
+        public void SearchJump_SetsLastSearchData()
+        {
+            Create("cat", "dog", "cat");
+            _mode.OnEnter(VimUtil.CreateFlashArgument(FlashKind.Search));
+            _mode.Process('c');
+            var target = _mode.Matches[0];
+            _mode.Process(target.Label[0]);
+            Assert.Equal("c", VimData.LastSearchData.Pattern);
+        }
+
+        [WpfFact]
+        public void FindCharJump_SetsLastCharSearch()
+        {
+            Create("x mid x", "x end x");
+            _textView.Caret.MoveTo(_textBuffer.GetPoint(2));
+            _mode.OnEnter(VimUtil.CreateFlashArgument(FlashKind.FindCharForward));
+            _mode.Process('x');
+            var target = _mode.Matches[0];
+            _mode.Process(target.Label[0]);
+            var lastCharSearch = VimData.LastCharSearch;
+            Assert.True(lastCharSearch.IsSome());
+            Assert.Equal(CharSearchKind.ToChar, lastCharSearch.Value.Item1);
+            Assert.Equal(SearchPath.Forward, lastCharSearch.Value.Item2);
+            Assert.Equal('x', lastCharSearch.Value.Item3);
+        }
+
+        [WpfFact]
+        public void Escape_DoesNotSetSearchState()
+        {
+            Create("cat", "dog");
+            var lastSearchPattern = VimData.LastSearchData.Pattern;
+            var lastCharSearch = VimData.LastCharSearch;
+            _mode.OnEnter(VimUtil.CreateFlashArgument(FlashKind.Search));
+            _mode.Process('c');
+            _mode.Process(KeyInputUtil.EscapeKey);
+            Assert.Equal(lastSearchPattern, VimData.LastSearchData.Pattern);
+            Assert.Equal(lastCharSearch, VimData.LastCharSearch);
         }
     }
 }
