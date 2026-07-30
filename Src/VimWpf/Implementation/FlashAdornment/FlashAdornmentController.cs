@@ -2,6 +2,7 @@ using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 
 namespace Vim.UI.Wpf.Implementation.FlashAdornment
@@ -61,8 +62,25 @@ namespace Vim.UI.Wpf.Implementation.FlashAdornment
                         continue;
                     }
 
+                    // Position the label explicitly on the match's first
+                    // character (the PeasyMotion approach): automatic
+                    // adornment positioning does not render reliably in
+                    // all hosts
+                    var firstCharSpan = new SnapshotSpan(
+                        flashMatch.Span.Start,
+                        Math.Min(1, snapshot.Length - flashMatch.Span.Start.Position));
+                    var geometry = _textView.TextViewLines.GetTextMarkerGeometry(firstCharSpan);
+                    if (geometry == null)
+                    {
+                        continue;
+                    }
+
                     var element = CreateLabelElement(flashMatch.Label);
-                    if (_layer.AddAdornment(AdornmentPositioningBehavior.TextRelative, flashMatch.Span, null, element, null))
+                    var border = (Border)element;
+                    Canvas.SetLeft(element, geometry.Bounds.Left - border.Padding.Left);
+                    Canvas.SetTop(element, geometry.Bounds.Top - border.Padding.Top);
+
+                    if (_layer.AddAdornment(AdornmentPositioningBehavior.TextRelative, firstCharSpan, null, element, null))
                     {
                         added++;
                     }
