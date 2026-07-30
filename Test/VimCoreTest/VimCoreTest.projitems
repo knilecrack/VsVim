@@ -42,7 +42,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)ExpressionInterpreterTest.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)ExtensionsTest.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)FileSystemTest.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)FlashDimTaggerSourceTest.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)FlashMatchHighlightTaggerSourceTest.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)FlashModeTest.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)FoldDataTest.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)FoldManagerTest.cs" />

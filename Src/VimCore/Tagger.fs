@@ -123,47 +123,28 @@ type internal IncrementalSearchTaggerProvider
             else
                 null
 
-/// Tagger for the dim backdrop and match highlights of an active flash
-/// session.  While flash mode is active the visible text is dimmed except
-/// for the matches, which are highlighted
-type FlashDimTaggerSource (_vimBuffer: IVimBuffer) as this =
+/// Tagger for the match highlights of an active flash session.  Dimming
+/// of the non-matching text is done with adornment rectangles by
+/// FlashAdornmentController (marker foregrounds lose to syntax colors)
+type FlashMatchHighlightTaggerSource (_vimBuffer: IVimBuffer) as this =
 
     let _flashMode = _vimBuffer.FlashMode
     let _textView = _vimBuffer.TextView
     let _eventHandlers = DisposableBag()
     let _changed = StandardEvent()
-    let mutable _dimSegments: SnapshotSpan list = []
     let mutable _matchSpans: SnapshotSpan list = []
 
     static let EmptyTagList = ReadOnlyCollection<ITagSpan<TextMarkerTag>>([| |])
 
-    /// Compute the dim segments: the extent minus the match spans
-    static let SubtractMatches (extent: SnapshotSpan) (matches: FlashMatch list) =
-        let segments = ResizeArray<SnapshotSpan>()
-        let mutable current = extent.Start.Position
-        let sorted = matches |> List.map (fun m -> m.Span) |> List.sortBy (fun span -> span.Start.Position)
-        for span in sorted do
-            if span.Start.Position > current then
-                segments.Add(SnapshotSpan(SnapshotPoint(extent.Snapshot, current), span.Start))
-            current <- max current span.End.Position
-        if extent.End.Position > current then
-            segments.Add(SnapshotSpan(SnapshotPoint(extent.Snapshot, current), extent.End))
-        List.ofSeq segments
-
     let update () =
         if _vimBuffer.ModeKind <> ModeKind.Flash then
-            _dimSegments <- []
             _matchSpans <- []
         else
             match TextViewUtil.GetVisibleSnapshotLineRange _textView with
             | None ->
-                _dimSegments <- []
                 _matchSpans <- []
-            | Some lineRange ->
-                let extent = lineRange.ExtentIncludingLineBreak
-                let matches = _flashMode.Matches
-                _matchSpans <- matches |> List.map (fun m -> m.Span)
-                _dimSegments <- SubtractMatches extent matches
+            | Some _ ->
+                _matchSpans <- _flashMode.Matches |> List.map (fun m -> m.Span)
 
     do
         let updateAndRaise () =
@@ -180,15 +161,11 @@ type FlashDimTaggerSource (_vimBuffer: IVimBuffer) as this =
         |> _eventHandlers.Add
 
     member x.GetTags (span: SnapshotSpan) =
-        match _dimSegments, _matchSpans with
-        | [], [] -> EmptyTagList
+        match _matchSpans with
+        | [] -> EmptyTagList
         | _ ->
             let snapshot = span.Snapshot
             let list = ResizeArray<ITagSpan<TextMarkerTag>>()
-            for segment in _dimSegments do
-                if segment.Snapshot = snapshot && span.IntersectsWith(segment) then
-                    let tag = TextMarkerTag(VimConstants.FlashDimTagName)
-                    list.Add(TagSpan(segment, tag) :> ITagSpan<TextMarkerTag>)
             for matchSpan in _matchSpans do
                 if matchSpan.Snapshot = snapshot && span.IntersectsWith(matchSpan) then
                     let tag = TextMarkerTag(VimConstants.FlashMatchTagName)
@@ -207,7 +184,7 @@ type FlashDimTaggerSource (_vimBuffer: IVimBuffer) as this =
 [<ContentType(VimConstants.AnyContentType)>]
 [<TextViewRole(PredefinedTextViewRoles.Editable)>]
 [<TagType(typeof<TextMarkerTag>)>]
-type internal FlashDimTaggerProvider
+type internal FlashMatchHighlightTaggerProvider
     [<ImportingConstructor>]
     (
         _vim: IVim
@@ -222,7 +199,7 @@ type internal FlashDimTaggerProvider
                 | None -> null
                 | Some vimBuffer ->
                     let func () =
-                        let taggerSource = new FlashDimTaggerSource(vimBuffer)
+                        let taggerSource = new FlashMatchHighlightTaggerSource(vimBuffer)
                         taggerSource :> IBasicTaggerSource<TextMarkerTag>
                     let tagger = TaggerUtil.CreateBasicTagger textView.Properties _key func
                     tagger :> obj :?> ITagger<'T>

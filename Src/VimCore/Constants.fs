@@ -34,9 +34,6 @@ module VimConstants =
     let YankTagName = "vsvim_yank"
 
     [<Literal>]
-    let FlashDimTagName = "vsvim_flashdim"
-
-    [<Literal>]
     let FlashMatchTagName = "vsvim_flashmatch"
 
     /// <summary>

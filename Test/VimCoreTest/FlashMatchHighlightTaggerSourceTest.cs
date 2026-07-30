@@ -7,11 +7,11 @@ using Xunit;
 
 namespace Vim.UnitTest
 {
-    public sealed class FlashDimTaggerSourceTest : VimTestBase
+    public sealed class FlashMatchHighlightTaggerSourceTest : VimTestBase
     {
         private IVimBuffer _vimBuffer;
         private ITextView _textView;
-        private FlashDimTaggerSource _taggerSourceRaw;
+        private FlashMatchHighlightTaggerSource _taggerSourceRaw;
         private IBasicTaggerSource<TextMarkerTag> _taggerSource;
 
         private void Create(params string[] lines)
@@ -21,23 +21,13 @@ namespace Vim.UnitTest
             _textView.DisplayTextLineContainingBufferPosition(
                 _textView.TextBuffer.GetLine(0).Start, 0.0, ViewRelativePosition.Top);
             ((IWpfTextView)_textView).SetVisibleLineCount(lines.Length);
-            _taggerSourceRaw = new FlashDimTaggerSource(_vimBuffer);
+            _taggerSourceRaw = new FlashMatchHighlightTaggerSource(_vimBuffer);
             _taggerSource = _taggerSourceRaw;
         }
 
         private ITagSpan<TextMarkerTag>[] GetTags()
         {
             return _taggerSource.GetTags(_textView.TextSnapshot.GetExtent()).ToArray();
-        }
-
-        private ITagSpan<TextMarkerTag>[] GetDimTags()
-        {
-            return GetTags().Where(tag => tag.Tag.Type == VimConstants.FlashDimTagName).ToArray();
-        }
-
-        private ITagSpan<TextMarkerTag>[] GetMatchTags()
-        {
-            return GetTags().Where(tag => tag.Tag.Type == VimConstants.FlashMatchTagName).ToArray();
         }
 
         [WpfFact]
@@ -48,16 +38,15 @@ namespace Vim.UnitTest
         }
 
         [WpfFact]
-        public void SessionStart_DimsVisibleText()
+        public void SessionStart_NoMatchTags()
         {
             Create("cat", "dog", "cat");
             _vimBuffer.SwitchMode(ModeKind.Flash, ModeArgument.NewFlash(FlashKind.Search));
-            Assert.NotEmpty(GetDimTags());
-            Assert.Empty(GetMatchTags());
+            Assert.Empty(GetTags());
         }
 
         [WpfFact]
-        public void TypeChar_DimCoversGapsAndMatchesHighlighted()
+        public void TypeChar_MatchesHighlighted()
         {
             Create("cat", "dog", "cat");
             _textView.MoveCaretToLine(1);
@@ -66,28 +55,11 @@ namespace Vim.UnitTest
 
             // Both 'c' matches are highlighted and sit at position 0 of
             // lines 0 and 2
-            var matchTags = GetMatchTags();
-            Assert.Equal(2, matchTags.Length);
-            Assert.All(matchTags, tag => Assert.Equal(1, tag.Span.Length));
-            Assert.All(matchTags, tag => Assert.Equal(tag.Span.Start.GetContainingLine().Start, tag.Span.Start));
-
-            // The dim covers the gaps, so it must not overlap any match
-            var dimTags = GetDimTags();
-            Assert.NotEmpty(dimTags);
-            Assert.All(dimTags, dim =>
-                Assert.All(matchTags, match =>
-                    Assert.False(dim.Span.OverlapsWith(match.Span))));
-
-            // Dim + match coverage must be continuous over the visible text:
-            // every line is covered by some tag
-            var coveredLines = GetTags()
-                .SelectMany(tag => Enumerable.Range(
-                    tag.Span.Start.GetContainingLine().LineNumber,
-                    tag.Span.End.GetContainingLine().LineNumber - tag.Span.Start.GetContainingLine().LineNumber + 1))
-                .Distinct()
-                .OrderBy(lineNumber => lineNumber)
-                .ToArray();
-            Assert.Equal(new[] { 0, 1, 2 }, coveredLines);
+            var tags = GetTags();
+            Assert.Equal(2, tags.Length);
+            Assert.All(tags, tag => Assert.Equal(VimConstants.FlashMatchTagName, tag.Tag.Type));
+            Assert.All(tags, tag => Assert.Equal(1, tag.Span.Length));
+            Assert.All(tags, tag => Assert.Equal(tag.Span.Start.GetContainingLine().Start, tag.Span.Start));
         }
 
         [WpfFact]

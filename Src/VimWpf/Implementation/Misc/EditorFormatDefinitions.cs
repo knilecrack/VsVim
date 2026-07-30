@@ -45,21 +45,6 @@ namespace Vim.UI.Wpf.Implementation.Misc
     }
 
     [Export(typeof(EditorFormatDefinition))]
-    [Name(VimConstants.FlashDimTagName)]
-    [UserVisible(true)]
-    internal sealed class FlashDimMarkerDefinition : MarkerFormatDefinition
-    {
-        internal FlashDimMarkerDefinition()
-        {
-            DisplayName = "VsVim Flash Dim";
-            // Semi-transparent mid gray dims the text on both light and
-            // dark themes while keeping a hint of the original colors
-            ForegroundColor = Color.FromArgb(110, 128, 128, 128);
-            BackgroundCustomizable = false;
-        }
-    }
-
-    [Export(typeof(EditorFormatDefinition))]
     [Name(VimConstants.FlashMatchTagName)]
     [UserVisible(true)]
     internal sealed class FlashMatchMarkerDefinition : MarkerFormatDefinition
