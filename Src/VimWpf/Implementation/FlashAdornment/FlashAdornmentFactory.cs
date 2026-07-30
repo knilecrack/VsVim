@@ -12,7 +12,7 @@ namespace Vim.UI.Wpf.Implementation.FlashAdornment
 #pragma warning disable 169, IDE0044
         [Export(typeof(AdornmentLayerDefinition))]
         [Name(FlashAdornmentLayerName)]
-        [Order(After = PredefinedAdornmentLayers.Selection)]
+        [Order(After = PredefinedAdornmentLayers.Caret)]
         private AdornmentLayerDefinition _flashAdornmentLayerDefinition;
 #pragma warning restore 169
 

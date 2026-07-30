@@ -83,16 +83,23 @@ namespace Vim.UI.Wpf.Implementation.FlashAdornment
         private UIElement CreateLabelElement(string label)
         {
             var textProperties = _textView.FormattedLineSource?.DefaultTextProperties;
+            var fontSize = textProperties != null ? textProperties.FontRenderingEmSize : 14.0;
+            if (fontSize <= 0)
+            {
+                fontSize = 14.0;
+            }
+
             return new Border
             {
                 Background = new SolidColorBrush(Color.FromRgb(37, 99, 235)),
                 IsHitTestVisible = false,
+                Padding = new Thickness(2, 0, 2, 0),
                 Child = new TextBlock
                 {
                     Text = label,
                     Foreground = Brushes.White,
                     FontFamily = textProperties != null ? textProperties.Typeface.FontFamily : new FontFamily("Consolas"),
-                    FontSize = textProperties != null ? textProperties.FontRenderingEmSize : 14.0,
+                    FontSize = fontSize,
                     FontWeight = FontWeights.Bold,
                 },
             };
