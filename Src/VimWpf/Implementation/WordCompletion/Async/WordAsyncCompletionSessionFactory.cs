@@ -29,7 +29,7 @@ namespace Vim.UI.Wpf.Implementation.WordCompletion.Async
     internal sealed class WordAsyncCompletionSessionFactory
     {
         private readonly IAsyncCompletionBroker _asyncCompletionBroker;
-#if VS_SPECIFIC_2019 || VS_SPECIFIC_2022
+#if VS_SPECIFIC_2019 || VS_SPECIFIC_2022 || VS_SPECIFIC_2026
         private readonly IVsEditorAdaptersFactoryService _vsEditorAdaptersFactoryService;
         internal WordAsyncCompletionSessionFactory(
             IAsyncCompletionBroker asyncCompletionBroker,
@@ -78,7 +78,7 @@ namespace Vim.UI.Wpf.Implementation.WordCompletion.Async
             }
 
             asyncCompletionSession.OpenOrUpdate(completionTrigger, wordSpan.Start, CancellationToken.None);
-#if VS_SPECIFIC_2019 || VS_SPECIFIC_2022
+#if VS_SPECIFIC_2019 || VS_SPECIFIC_2022 || VS_SPECIFIC_2026
             return new WordAsyncCompletionSession(asyncCompletionSession, _vsEditorAdaptersFactoryService);
 #elif VS_SPECIFIC_MAC
             return new WordAsyncCompletionSession(asyncCompletionSession);

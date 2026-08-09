@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace Vim.EditorHost.Implementation.Misc
 {
-#if VS_SPECIFIC_2022
+#if VS_SPECIFIC_2022 || VS_SPECIFIC_2026
 #elif VS_SPECIFIC_2019
     [Export(typeof(ILoggingServiceInternal))]
     internal sealed class BasicLoggingServiceInternal : ILoggingServiceInternal

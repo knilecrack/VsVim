@@ -1,4 +1,4 @@
-﻿#light
+#light
 
 namespace Vim.Interpreter
 open Vim
@@ -143,6 +143,8 @@ and [<Sealed>] internal Parser
         ("endfunction", "endf")
         ("endif", "en")
         ("exit", "exi")
+        ("flash", "flash")
+        ("Flash", "Flash")
         ("fold", "fo")
         ("function", "fu")
         ("global", "g")
@@ -922,6 +924,7 @@ and [<Sealed>] internal Parser
             | LineCommand.ElseIf _ -> noRangeCommand
             | LineCommand.Execute _ -> noRangeCommand
             | LineCommand.Files -> noRangeCommand
+            | LineCommand.Flash _ -> noRangeCommand
             | LineCommand.Fold lineRange -> LineCommand.Fold lineRange
             | LineCommand.Function _ -> noRangeCommand
             | LineCommand.FunctionEnd -> noRangeCommand
@@ -2007,6 +2010,18 @@ and [<Sealed>] internal Parser
             let argument = x.ParseRestOfLine()
             LineCommand.HostCommand (hasBang, command, argument)
 
+    /// Parse out a flash command.  Takes an optional flag: -f, -F, -t or -T.
+    /// With no flag it starts a flash search
+    member x.ParseFlash() =
+        x.SkipBlanks()
+        match x.ParseRestOfLine() with
+        | "" -> LineCommand.Flash FlashKind.Search
+        | "-f" -> LineCommand.Flash FlashKind.FindCharForward
+        | "-F" -> LineCommand.Flash FlashKind.FindCharBackward
+        | "-t" -> LineCommand.Flash FlashKind.TillCharForward
+        | "-T" -> LineCommand.Flash FlashKind.TillCharBackward
+        | _ -> x.ParseError Resources.Parser_Error
+
     member x.ParseWrite lineRange = 
         let hasBang = x.ParseBang()
         x.SkipBlanks()
@@ -2124,15 +2139,24 @@ and [<Sealed>] internal Parser
         match _tokenizer.CurrentTokenKind with
         | TokenKind.Character '\\' -> x.ParseError Resources.Parser_InvalidArgument
         | TokenKind.Character '"' -> x.ParseError Resources.Parser_InvalidArgument
+        | TokenKind.Character '|' -> x.ParseError Resources.Parser_InvalidArgument
+        | TokenKind.Character '!' -> x.ParseError Resources.Parser_InvalidArgument
+        | TokenKind.Character delimiter when System.Char.IsLetter delimiter -> x.ParseError Resources.Parser_InvalidArgument
         | TokenKind.Character delimiter ->
             _tokenizer.MoveNextToken()
             let pattern, foundDelimiter = x.ParsePattern delimiter
             if foundDelimiter then
-                let command = x.ParseSingleLine()
+                x.SkipBlanks()
+                let command =
+                    if _tokenizer.IsAtEndOfLine then
+                        LineCommand.DisplayLines (LineRangeSpecifier.None, LineCommandFlags.Print)
+                    else
+                        x.ParseSingleLine()
                 LineCommand.Global (lineRange, pattern, matchPattern, command)
             else
                 x.ParseError Resources.Parser_InvalidArgument
         | _ -> x.ParseError Resources.Parser_InvalidArgument
+
 
     /// Parse out the :if command from the buffer
     member x.ParseIfStart() = 
@@ -2625,6 +2649,8 @@ and [<Sealed>] internal Parser
                 | "endif" -> noRange x.ParseIfEnd
                 | "exit" -> x.ParseQuitAndWrite lineRange
                 | "files" -> noRange x.ParseFiles
+                | "flash" -> noRange x.ParseFlash
+                | "Flash" -> noRange x.ParseFlash
                 | "fold" -> x.ParseFold lineRange
                 | "function" -> noRange x.ParseFunctionStart
                 | "global" -> x.ParseGlobal lineRange

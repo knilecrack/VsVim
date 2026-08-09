@@ -1,4 +1,4 @@
-﻿#light
+#light
 namespace Vim.Interpreter
 open Microsoft.VisualStudio.Text
 open Vim
@@ -1329,59 +1329,68 @@ type VimInterpreter
     member x.RunGlobal lineRange pattern matchPattern lineCommand =
 
         let pattern = 
-            if StringUtil.IsNullOrEmpty pattern then _vimData.LastSearchData.Pattern
+            if StringUtil.IsNullOrEmpty pattern then
+                _vimData.LastSearchData.Pattern
             else
                 _vimData.LastSearchData <- SearchData(pattern, SearchPath.Forward)
+                _vimData.LastSubstituteData <- Some { SearchPattern = pattern; Substitute = StringUtil.Empty; Flags = SubstituteFlags.None }
                 pattern
 
         x.RunWithLineRangeOrDefault lineRange DefaultLineRange.EntireBuffer (fun lineRange ->
-            let options = VimRegexFactory.CreateRegexOptions _globalSettings
-            match VimRegexFactory.Create pattern options with
-            | None -> _statusUtil.OnError Resources.Interpreter_Error
-            | Some regex ->
-    
-                // All of the edits should behave as a single vim undo.  Can't do this as a single
-                // global undo as it executes as series of sub commands which create their own 
-                // global undo units
-                use transaction = _undoRedoOperations.CreateLinkedUndoTransactionWithFlags "Global Command" LinkedUndoTransactionFlags.CanBeEmpty
-                try
-    
-                    // Each command we run can, and often will, change the underlying buffer whcih
-                    // will change the current ITextSnapshot.  Run one pass to get the line numbers
-                    // and then a second to edit the commands
-                    let lineNumbers = 
-                        lineRange.Lines
-                        |> Seq.filter (fun snapshotLine ->
-                            let text = SnapshotLineUtil.GetText snapshotLine
-                            let didMatch = regex.IsMatch text
-                            didMatch = matchPattern)
-                        |> Seq.map (fun snapshotLine ->
-                            let lineNumber, offset = SnapshotPointUtil.GetLineNumberAndOffset snapshotLine.Start
-                            _bufferTrackingService.CreateLineOffset _textBuffer lineNumber offset LineColumnTrackingMode.Default)
-                        |> List.ofSeq
-    
-                    // Now perform the edit for every line.  Make sure to map forward to the 
-                    // current ITextSnapshot
-                    lineNumbers |> List.iter (fun trackingLineColumn ->
-                        match trackingLineColumn.Point with
-                        | None -> ()
-                        | Some point ->
-                            let point = 
-                                point
-                                |> SnapshotPointUtil.GetContainingLine
-                                |> SnapshotLineUtil.GetStart
-    
-                            // Caret needs to move to the start of the line for each :global command
-                            // action.  The caret will persist on the final line in the range once
-                            // the :global command completes
-                            TextViewUtil.MoveCaretToPoint _textView point
-                            x.RunLineCommand lineCommand |> ignore)
-    
-                    // Now close all of the ITrackingLineColumn values so that they stop taking up resources
-                    lineNumbers |> List.iter (fun trackingLineColumn -> trackingLineColumn.Close())
-    
-                finally
-                    transaction.Complete())
+            if StringUtil.IsNullOrEmpty pattern then
+                _statusUtil.OnError Resources.NormalMode_NoPreviousSearch
+            else
+                let options = VimRegexFactory.CreateRegexOptions _globalSettings
+                match VimRegexFactory.Create pattern options with
+                | None -> _statusUtil.OnError Resources.Interpreter_Error
+                | Some regex ->
+                    // All of the edits should behave as a single vim undo.  Can't do this as a single
+                    // global undo as it executes as series of sub commands which create their own 
+                    // global undo units
+                    use transaction = _undoRedoOperations.CreateLinkedUndoTransactionWithFlags "Global Command" LinkedUndoTransactionFlags.CanBeEmpty
+                    try
+                        // Each command we run can, and often will, change the underlying buffer whcih
+                        // will change the current ITextSnapshot.  Run one pass to get the line numbers
+                        // and then a second to edit the commands
+                        let lineNumbers = 
+                            lineRange.Lines
+                            |> Seq.filter (fun snapshotLine ->
+                                let text = SnapshotLineUtil.GetText snapshotLine
+                                let didMatch = regex.IsMatch text
+                                didMatch = matchPattern)
+                            |> Seq.map (fun snapshotLine ->
+                                let lineNumber, offset = SnapshotPointUtil.GetLineNumberAndOffset snapshotLine.Start
+                                _bufferTrackingService.CreateLineOffset _textBuffer lineNumber offset LineColumnTrackingMode.Default)
+                            |> List.ofSeq
+
+                        // Now perform the edit for every line.  Make sure to map forward to the 
+                        // current ITextSnapshot
+                        lineNumbers |> List.iter (fun trackingLineColumn ->
+                            match trackingLineColumn.Point with
+                            | None -> ()
+                            | Some point ->
+                                let point = 
+                                    point
+                                    |> SnapshotPointUtil.GetContainingLine
+                                    |> SnapshotLineUtil.GetStart
+
+                                // Caret needs to move to the start of the line for each :global command
+                                // action.  The caret will persist on the final line in the range once
+                                // the :global command completes
+                                TextViewUtil.MoveCaretToPoint _textView point
+                                x.RunLineCommand lineCommand |> ignore)
+
+                        // Now close all of the ITrackingLineColumn values so that they stop taking up resources
+                        lineNumbers |> List.iter (fun trackingLineColumn -> trackingLineColumn.Close())
+
+                    finally
+                        transaction.Complete()
+            )
+
+
+
+
+
 
     /// Go to the first tab
     member x.RunGoToFirstTab() =
@@ -2328,6 +2337,10 @@ type VimInterpreter
             TextViewUtil.ClearSelection _textView
             TextViewUtil.MoveCaretToVirtualPoint _textView start
 
+    /// Enter flash mode for the given session kind
+    member x.RunFlash kind =
+        _vimBuffer.SwitchMode ModeKind.Flash (ModeArgument.Flash kind) |> ignore
+
     member x.RunWrite lineRange hasBang fileOptionList filePath =
         x.RunWithLineRangeOrDefault lineRange DefaultLineRange.EntireBuffer (fun lineRange ->
 
@@ -2426,6 +2439,7 @@ type VimInterpreter
         | LineCommand.FunctionStart _ -> cantRun ()
         | LineCommand.FunctionEnd -> cantRun ()
         | LineCommand.Files -> x.RunFiles()
+        | LineCommand.Flash kind -> x.RunFlash kind
         | LineCommand.Fold lineRange -> x.RunFold lineRange
         | LineCommand.Global (lineRange, pattern, matchPattern, lineCommand) -> x.RunGlobal lineRange pattern matchPattern lineCommand
         | LineCommand.Help subject -> x.RunHelp subject

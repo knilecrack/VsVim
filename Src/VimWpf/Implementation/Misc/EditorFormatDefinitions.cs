@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.Composition;
+using System.ComponentModel.Composition;
 using System.Windows.Media;
 using Microsoft.VisualStudio.Text.Classification;
 using Microsoft.VisualStudio.Utilities;
@@ -27,6 +27,32 @@ namespace Vim.UI.Wpf.Implementation.Misc
         {
             DisplayName = "VsVim Highlight Incremental Search";
             BackgroundColor = Colors.LightBlue;
+            ForegroundCustomizable = false;
+        }
+    }
+
+    [Export(typeof(EditorFormatDefinition))]
+    [Name(VimConstants.YankTagName)]
+    [UserVisible(true)]
+    internal sealed class YankHighlightMarkerDefinition : MarkerFormatDefinition
+    {
+        internal YankHighlightMarkerDefinition()
+        {
+            DisplayName = "VsVim Yank Highlight";
+            BackgroundColor = Color.FromRgb(255, 255, 150); // Light yellow
+            ForegroundCustomizable = false;
+        }
+    }
+
+    [Export(typeof(EditorFormatDefinition))]
+    [Name(VimConstants.FlashMatchTagName)]
+    [UserVisible(true)]
+    internal sealed class FlashMatchMarkerDefinition : MarkerFormatDefinition
+    {
+        internal FlashMatchMarkerDefinition()
+        {
+            DisplayName = "VsVim Flash Match";
+            BackgroundColor = Color.FromRgb(255, 193, 99); // Warm highlight
             ForegroundCustomizable = false;
         }
     }

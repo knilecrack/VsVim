@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.FSharp.Collections;
@@ -1692,6 +1692,85 @@ let x = 42
             {
                 var command = ParseLineCommand(">>>");
                 Assert.Equal(3, ((LineCommand.ShiftRight)command).Count);
+            }
+        }
+
+        public sealed class FlashTest : ParserTest
+        {
+            [Fact]
+            public void Flash_NoFlag_IsSearch()
+            {
+                var lineCommand = ParseLineCommand("flash");
+                var kind = Assert.IsType<LineCommand.Flash>(lineCommand).FlashKind;
+                Assert.Equal(FlashKind.Search, kind);
+            }
+
+            [Fact]
+            public void Flash_Uppercase_IsSearch()
+            {
+                var lineCommand = ParseLineCommand("Flash");
+                var kind = Assert.IsType<LineCommand.Flash>(lineCommand).FlashKind;
+                Assert.Equal(FlashKind.Search, kind);
+            }
+
+            [Fact]
+            public void Flash_UppercaseDashF_IsFindCharForward()
+            {
+                var lineCommand = ParseLineCommand("Flash -f");
+                var kind = Assert.IsType<LineCommand.Flash>(lineCommand).FlashKind;
+                Assert.Equal(FlashKind.FindCharForward, kind);
+            }
+
+            [Fact]
+            public void Flash_DashF_IsFindCharForward()
+            {
+                var lineCommand = ParseLineCommand("flash -f");
+                var kind = Assert.IsType<LineCommand.Flash>(lineCommand).FlashKind;
+                Assert.Equal(FlashKind.FindCharForward, kind);
+            }
+
+            [Fact]
+            public void Flash_DashCapitalF_IsFindCharBackward()
+            {
+                var lineCommand = ParseLineCommand("flash -F");
+                var kind = Assert.IsType<LineCommand.Flash>(lineCommand).FlashKind;
+                Assert.Equal(FlashKind.FindCharBackward, kind);
+            }
+
+            [Fact]
+            public void Flash_DashT_IsTillCharForward()
+            {
+                var lineCommand = ParseLineCommand("flash -t");
+                var kind = Assert.IsType<LineCommand.Flash>(lineCommand).FlashKind;
+                Assert.Equal(FlashKind.TillCharForward, kind);
+            }
+
+            [Fact]
+            public void Flash_DashCapitalT_IsTillCharBackward()
+            {
+                var lineCommand = ParseLineCommand("flash -T");
+                var kind = Assert.IsType<LineCommand.Flash>(lineCommand).FlashKind;
+                Assert.Equal(FlashKind.TillCharBackward, kind);
+            }
+
+            [Fact]
+            public void Flash_InvalidFlag_IsParseError()
+            {
+                AssertParseLineCommandError("flash -x", Resources.Parser_Error);
+            }
+
+            [Fact]
+            public void Flash_Abbreviation_NotSupported()
+            {
+                // The flash command must be typed in full; "fla" is not a
+                // valid abbreviation and fails to parse
+                AssertParseLineCommandError("fla", Resources.Parser_Error);
+            }
+
+            [Fact]
+            public void Flash_Range_IsParseError()
+            {
+                AssertParseLineCommandError("1flash", Resources.Parser_NoRangeAllowed);
             }
         }
 

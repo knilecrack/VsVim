@@ -1,4 +1,4 @@
-﻿#light
+#light
 
 namespace Vim
 
@@ -32,10 +32,12 @@ type internal VimTextBuffer
     let _modeLineInterpreter = ModeLineInterpreter(_textBuffer, _localSettings)
     let _switchedModeEvent = StandardEvent<SwitchModeKindEventArgs>()
     let _markSetEvent = StandardEvent<MarkTextBufferEventArgs>()
+    let _yankOccurredEvent = StandardEvent<SnapshotSpanEventArgs>()
     let _wordNavigator = _wordUtil.WordNavigator
 
     let mutable _modeKind = ModeKind.Normal
     let mutable _lastVisualSelection: ITrackingVisualSelection option = None
+
     let mutable _insertStartPoint: ITrackingLineColumn option = None
     let mutable _lastInsertExitPoint: ITrackingLineColumn option = None
     let mutable _lastEditPoint: ITrackingLineColumn option = None
@@ -179,7 +181,8 @@ type internal VimTextBuffer
 
             x.RaiseMarkSet LocalMark.LastChangeOrYankEnd
 
-     member x.InOneTimeCommand
+    member x.InOneTimeCommand
+
         with get() = _inOneTimeCommand
         and set value = _inOneTimeCommand <- value
 
@@ -193,6 +196,7 @@ type internal VimTextBuffer
 
     /// Get all of the local marks in the IVimTextBuffer.
     member x.LocalMarks = 
+
         LocalMark.All
         |> Seq.choose (fun localMark ->
             match x.GetLocalMark localMark with
@@ -303,7 +307,11 @@ type internal VimTextBuffer
         let args = SwitchModeKindEventArgs(modeKind, modeArgument)
         _switchedModeEvent.Trigger x args
 
+    member x.RaiseYankOccurred (span: SnapshotSpan) =
+        _yankOccurredEvent.Trigger x (SnapshotSpanEventArgs(span))
+
     interface IVimTextBuffer with
+
         member x.TextBuffer = _textBuffer
         member x.GlobalSettings = _globalSettings
         member x.GlobalAbbreviationMap = _localAbbreviationMap.GlobalAbbreviationMap
@@ -328,9 +336,16 @@ type internal VimTextBuffer
         member x.LastChangeOrYankEnd
             with get() = x.LastChangeOrYankEnd
             and set value = x.LastChangeOrYankEnd <- value
+
+        [<CLIEvent>]
+        member x.YankOccurred = _yankOccurredEvent.Publish
+
+        member x.RaiseYankOccurred span = x.RaiseYankOccurred span
+
         member x.InOneTimeCommand
             with get() = x.InOneTimeCommand
             and set value = x.InOneTimeCommand <- value
+
         member x.InSelectModeOneTimeCommand
             with get() = x.InSelectModeOneTimeCommand
             and set value = x.InSelectModeOneTimeCommand <- value
@@ -354,6 +369,3 @@ type internal VimTextBuffer
 
         [<CLIEvent>]
         member x.SwitchedMode = _switchedModeEvent.Publish
-
-        [<CLIEvent>]
-        member x.MarkSet = _markSetEvent.Publish

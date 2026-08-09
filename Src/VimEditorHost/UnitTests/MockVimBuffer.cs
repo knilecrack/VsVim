@@ -27,6 +27,7 @@ namespace Vim.UnitTest
         public FSharpList<KeyInput> BufferedKeyInputsImpl;
         public IDisabledMode DisabledModeImpl;
         public ISubstituteConfirmMode SubstituteConfirmModeImpl;
+        public IFlashMode FlashModeImpl;
         public IIncrementalSearch IncrementalSearchImpl;
         public IInsertMode InsertModeImpl;
         public IInsertMode ReplaceModeImpl;
@@ -248,6 +249,8 @@ namespace Vim.UnitTest
 
         public event EventHandler<SwitchModeEventArgs> SwitchedMode;
 
+        public event EventHandler<SnapshotSpanEventArgs> YankOccurred;
+
 #pragma warning disable 67
         public event EventHandler<KeyInputStartEventArgs> KeyInputProcessing;
 
@@ -331,6 +334,11 @@ namespace Vim.UnitTest
         public ISubstituteConfirmMode SubstituteConfirmMode
         {
             get { return SubstituteConfirmModeImpl; }
+        }
+
+        public IFlashMode FlashMode
+        {
+            get { return FlashModeImpl; }
         }
 
         public IMode ExternalEditMode

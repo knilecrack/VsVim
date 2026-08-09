@@ -1,0 +1,246 @@
+#light
+
+namespace Vim.Modes.Flash
+open System
+open Vim
+open Vim.Modes
+open Microsoft.VisualStudio.Text
+open Microsoft.VisualStudio.Text.Editor
+
+type internal FlashMode
+    (
+        _vimBufferData: IVimBufferData,
+        _operations: ICommonOperations
+    ) as this =
+
+    let _vimTextBuffer = _vimBufferData.VimTextBuffer
+    let _textView = _vimBufferData.TextView
+    let _vimData = _vimBufferData.Vim.VimData
+    let _globalSettings = _vimTextBuffer.GlobalSettings
+    let _matchesChanged = StandardEvent()
+    let _backKey = KeyNotationUtil.StringToKeyInput "<BS>"
+    let _enterKey = KeyNotationUtil.StringToKeyInput "<CR>"
+
+    /// The label alphabet, in assignment order.  Home row first like flash.nvim
+    static let LabelChars = "asdfghjklqwertyuiopzxcvbnm"
+
+    let mutable _kind = FlashKind.Search
+    let mutable _searchText = ""
+    let mutable _matches: FlashMatch list = []
+
+    /// Stability map: match start position -> assigned label.  A match keeps
+    /// its label as the search text is narrowed
+    let mutable _labelMap: Map<int, char> = Map.empty
+
+    member x.CaretPoint = TextViewUtil.GetCaretPoint _textView
+
+    /// Is the search for the given text case sensitive, honoring
+    /// the 'ignorecase' and 'smartcase' options
+    member x.IsCaseSensitive (text: string) =
+        if not _globalSettings.IgnoreCase then true
+        elif _globalSettings.SmartCase && (text |> Seq.exists Char.IsUpper) then true
+        else false
+
+    /// Find all occurrences of text in the visible extent
+    member x.FindMatches (text: string): SnapshotSpan list =
+        if StringUtil.IsNullOrEmpty text then []
+        else
+            match TextViewUtil.GetVisibleSnapshotLineRange _textView with
+            | None -> []
+            | Some lineRange ->
+                let extent = lineRange.ExtentIncludingLineBreak
+                let haystack = extent.GetText()
+                let comparison =
+                    if x.IsCaseSensitive text then StringComparison.Ordinal
+                    else StringComparison.OrdinalIgnoreCase
+                let startPosition = extent.Start.Position
+                let snapshot = extent.Snapshot
+                let result = ResizeArray<SnapshotSpan>()
+                let mutable index = haystack.IndexOf(text, comparison)
+                while index >= 0 do
+                    let start = SnapshotPoint(snapshot, startPosition + index)
+                    result.Add(SnapshotSpan(start, text.Length))
+                    let nextIndex = index + max 1 text.Length
+                    if nextIndex >= haystack.Length then
+                        index <- -1
+                    else
+                        index <- haystack.IndexOf(text, nextIndex, comparison)
+                List.ofSeq result
+
+    /// Order the matches by jump priority for the current kind
+    member x.OrderMatches (matches: SnapshotSpan list) =
+        let caretPosition = x.CaretPoint.Position
+        match _kind with
+        | FlashKind.Search ->
+            matches
+            |> List.filter (fun span -> span.Start.Position <> caretPosition)
+            |> List.sortBy (fun span -> abs (span.Start.Position - caretPosition))
+        | FlashKind.FindCharForward | FlashKind.TillCharForward ->
+            matches
+            |> List.filter (fun span -> span.Start.Position > caretPosition)
+            |> List.sortBy (fun span -> span.Start.Position)
+        | FlashKind.FindCharBackward | FlashKind.TillCharBackward ->
+            matches
+            |> List.filter (fun span -> span.Start.Position < caretPosition)
+            |> List.sortByDescending (fun span -> span.Start.Position)
+
+    /// Assign labels to the ordered matches, keeping previously assigned
+    /// labels stable while the match is still present.  Matches beyond the
+    /// label alphabet are dropped
+    member x.AssignLabels (ordered: SnapshotSpan list): FlashMatch list =
+        let usedLabels = System.Collections.Generic.HashSet<char>()
+        _labelMap |> Map.iter (fun _ label -> usedLabels.Add label |> ignore)
+        let result = ResizeArray<FlashMatch>()
+        let mutable labelIndex = 0
+        for span in ordered do
+            let position = span.Start.Position
+            match Map.tryFind position _labelMap with
+            | Some label ->
+                usedLabels.Add label |> ignore
+                result.Add { Span = span; Label = string label }
+            | None ->
+                // Do not label a match with the character that follows the
+                // search text at that match; that char must stay free so the
+                // user can keep narrowing the search (flash.nvim behavior)
+                let charAfter =
+                    let afterPosition = span.End.Position
+                    if afterPosition < span.Snapshot.Length then Some (span.Snapshot.[afterPosition])
+                    else None
+                let mutable label: char option = None
+                while labelIndex < LabelChars.Length && label.IsNone do
+                    let candidate = LabelChars.[labelIndex]
+                    labelIndex <- labelIndex + 1
+                    if not (usedLabels.Contains candidate) && Some candidate <> charAfter then
+                        label <- Some candidate
+                match label with
+                | Some c ->
+                    usedLabels.Add c |> ignore
+                    _labelMap <- Map.add position c _labelMap
+                    result.Add { Span = span; Label = string c }
+                | None -> ()
+        List.ofSeq result
+
+    /// Recompute matches and labels for the current search text.  This is
+    /// the single update path; it always raises MatchesChanged
+    member x.Recompute () =
+        let ordered = x.FindMatches _searchText |> x.OrderMatches
+        let currentPositions = ordered |> List.map (fun span -> span.Start.Position) |> Set.ofList
+        _labelMap <- _labelMap |> Map.filter (fun position _ -> Set.contains position currentPositions)
+        _matches <- x.AssignLabels ordered
+        _matchesChanged.Trigger this
+
+    member x.EndSession () =
+        _searchText <- ""
+        _matches <- []
+        _labelMap <- Map.empty
+        _matchesChanged.Trigger this
+
+    /// Record the session's search so it can be repeated after the jump:
+    /// find kinds via ';' and ',' (like native f/t), search kind via
+    /// 'n' and 'N' (like /).  Must be called before EndSession clears the
+    /// search text
+    member x.SaveSearchState () =
+        match _kind with
+        | FlashKind.Search ->
+            if not (StringUtil.IsNullOrEmpty _searchText) then
+                _vimData.LastSearchData <- SearchData(_searchText, SearchPath.Forward, _globalSettings.WrapScan)
+        | _ ->
+            if _searchText.Length = 1 then
+                let charSearch =
+                    match _kind with
+                    | FlashKind.FindCharForward | FlashKind.FindCharBackward -> CharSearchKind.ToChar
+                    | _ -> CharSearchKind.TillChar
+                let direction =
+                    match _kind with
+                    | FlashKind.FindCharForward | FlashKind.TillCharForward -> SearchPath.Forward
+                    | _ -> SearchPath.Backward
+                _vimData.LastCharSearch <- Some (charSearch, direction, _searchText.[0])
+
+    member x.CanProcess (keyInput: KeyInput) =
+        KeyInputUtil.IsCore keyInput && not keyInput.IsMouseKey
+
+    /// Jump the caret to the given match and end the session.  Till kinds
+    /// land one position before/after the match, clamped to the match line.
+    /// If the buffer changed mid-session the match span's snapshot is stale;
+    /// end the session without moving the caret
+    member x.JumpTo (flashMatch: FlashMatch) =
+        if flashMatch.Span.Snapshot <> _textView.TextBuffer.CurrentSnapshot then
+            x.EndSession()
+            ProcessResult.Handled (ModeSwitch.SwitchMode ModeKind.Normal)
+        else
+            let point = flashMatch.Span.Start
+            let point =
+                match _kind with
+                | FlashKind.TillCharForward ->
+                    let line = SnapshotPointUtil.GetContainingLine point
+                    if point.Position > line.Start.Position then point.Subtract(1) else point
+                | FlashKind.TillCharBackward ->
+                    let line = SnapshotPointUtil.GetContainingLine point
+                    if point.Position < line.End.Position then point.Add(1) else point
+                | _ -> point
+            _operations.MoveCaretToPoint point ViewFlags.Standard
+            x.SaveSearchState()
+            x.EndSession()
+            ProcessResult.Handled (ModeSwitch.SwitchMode ModeKind.Normal)
+
+    member x.Process (keyInputData: KeyInputData) =
+        let keyInput = keyInputData.KeyInput
+        if keyInput = KeyInputUtil.EscapeKey then
+            x.EndSession()
+            ProcessResult.Handled (ModeSwitch.SwitchMode ModeKind.Normal)
+        elif keyInput = _enterKey then
+            match _matches with
+            | [] -> ProcessResult.Handled ModeSwitch.NoSwitch
+            | head :: _ -> x.JumpTo head
+        elif keyInput = _backKey then
+            if _searchText.Length > 0 then
+                _searchText <- _searchText.Substring(0, _searchText.Length - 1)
+                x.Recompute()
+            ProcessResult.Handled ModeSwitch.NoSwitch
+        else
+            match keyInput.RawChar with
+            | None -> ProcessResult.Handled ModeSwitch.NoSwitch
+            | Some c ->
+                // A typed label jumps once there is a search in progress;
+                // otherwise the char extends the search text
+                let labelMatch =
+                    if StringUtil.IsNullOrEmpty _searchText then None
+                    else _matches |> List.tryFind (fun m -> m.Label = string c)
+                match labelMatch with
+                | Some flashMatch -> x.JumpTo flashMatch
+                | None ->
+                    match _kind with
+                    | FlashKind.Search ->
+                        _searchText <- _searchText + string c
+                        x.Recompute()
+                    | _ ->
+                        // Find kinds take a single target char; further
+                        // non-label chars are ignored
+                        if StringUtil.IsNullOrEmpty _searchText then
+                            _searchText <- string c
+                            x.Recompute()
+                    ProcessResult.Handled ModeSwitch.NoSwitch
+
+    member x.OnEnter (arg: ModeArgument) =
+        arg.CompleteAnyTransaction()
+        _kind <-
+            match arg with
+            | ModeArgument.Flash kind -> kind
+            | _ -> FlashKind.Search
+        _searchText <- ""
+        _matches <- []
+        _labelMap <- Map.empty
+
+    interface IFlashMode with
+        member x.VimTextBuffer = _vimTextBuffer
+        member x.ModeKind = ModeKind.Flash
+        member x.CommandNames = LabelChars |> Seq.map (fun c -> KeyInputSet(KeyInputUtil.CharToKeyInput c))
+        member x.CanProcess keyInput = x.CanProcess keyInput
+        member x.Process keyInputData = x.Process keyInputData
+        member x.SearchText = _searchText
+        member x.Matches = _matches
+        member x.OnEnter arg = x.OnEnter arg
+        member x.OnLeave () = x.EndSession()
+        member x.OnClose () = ()
+        [<CLIEvent>]
+        member x.MatchesChanged = _matchesChanged.Publish

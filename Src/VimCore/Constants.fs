@@ -1,4 +1,4 @@
-﻿#light 
+#light 
 
 namespace Vim
 
@@ -30,7 +30,14 @@ module VimConstants =
     [<Literal>]
     let HighlightIncrementalSearchTagName = "vsvim_highlightsearch"
 
+    [<Literal>]
+    let YankTagName = "vsvim_yank"
+
+    [<Literal>]
+    let FlashMatchTagName = "vsvim_flashmatch"
+
     /// <summary>
+
     /// Name of the main Key Processor
     /// </summary>
     [<Literal>]
@@ -38,10 +45,10 @@ module VimConstants =
 
 #if DEBUG
     [<Literal>]
-    let VersionNumber = "2.10.99.99 Debug"
+    let VersionNumber = "2.11.99.99 Debug"
 #else
     [<Literal>]
-    let VersionNumber = "2.10.0.5"
+    let VersionNumber = "2.11.1.1"
 #endif
 
 

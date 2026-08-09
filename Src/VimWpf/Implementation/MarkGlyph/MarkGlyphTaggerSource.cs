@@ -42,7 +42,6 @@ namespace Vim.UI.Wpf.Implementation.MarkGlyph
             _markMap.MarkSet += OnBufferMarkSet;
             _markMap.MarkDeleted += OnMarkDeleted;
             _markDisplayUtil.HideMarksChanged += OnHideMarksChanged;
-            _vimBufferData.VimTextBuffer.MarkSet += OnBufferMarkSet;
             _vimBufferData.JumpList.MarkSet += OnWindowMarkSet;
             _vimBufferData.TextBuffer.Changed += OnTextBufferChanged;
             _vimBufferData.Vim.VimHost.IsVisibleChanged += OnIsVisibleChanged;
@@ -53,7 +52,6 @@ namespace Vim.UI.Wpf.Implementation.MarkGlyph
             _markMap.MarkSet -= OnBufferMarkSet;
             _markMap.MarkDeleted -= OnMarkDeleted;
             _markDisplayUtil.HideMarksChanged -= OnHideMarksChanged;
-            _vimBufferData.VimTextBuffer.MarkSet -= OnBufferMarkSet;
             _vimBufferData.JumpList.MarkSet += OnWindowMarkSet;
             _vimBufferData.TextBuffer.Changed -= OnTextBufferChanged;
         }

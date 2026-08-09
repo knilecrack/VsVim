@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using EnvDTE;
 using Vim.EditorHost;
@@ -94,6 +94,72 @@ namespace Vim.VisualStudio.UnitTest
                 sp.Object,
                 _clipboardDevice.Object);
             _host = _hostRaw;
+        }
+
+        public sealed class RunHostCommandTest : VsVimHostTest
+        {
+            [WpfFact]
+            public void ErrorReporting()
+            {
+                Create();
+                var textView = CreateTextView("");
+                var vim = _factory.Create<IVim>(MockBehavior.Loose);
+                var globalSettings = _factory.Create<IVimGlobalSettings>(MockBehavior.Loose);
+                var statusUtil = _factory.Create<IStatusUtil>();
+                vim.SetupGet(x => x.ActiveStatusUtil).Returns(statusUtil.Object);
+                vim.SetupGet(x => x.GlobalSettings).Returns(globalSettings.Object);
+                _hostRaw.VimCreated(vim.Object);
+
+                _commandDispatcher
+                    .Setup(x => x.ExecuteCommand(textView, "Unknown.Command", "", false))
+                    .Returns(false);
+                statusUtil.Setup(x => x.OnError("Failed to execute Visual Studio command 'Unknown.Command'")).Verifiable();
+
+                _host.RunHostCommand(textView, "Unknown.Command", "");
+                statusUtil.Verify();
+            }
+
+            [WpfFact]
+            public void HelpMetaCommand()
+            {
+                Create();
+                var textView = CreateTextView("");
+                var vim = _factory.Create<IVim>(MockBehavior.Loose);
+                var globalSettings = _factory.Create<IVimGlobalSettings>(MockBehavior.Loose);
+                var statusUtil = _factory.Create<IStatusUtil>();
+                vim.SetupGet(x => x.ActiveStatusUtil).Returns(statusUtil.Object);
+                vim.SetupGet(x => x.GlobalSettings).Returns(globalSettings.Object);
+                _hostRaw.VimCreated(vim.Object);
+
+                statusUtil.Setup(x => x.OnStatus("Usage: :vsc [-list|-search] [pattern] OR :vsc CommandName [args]")).Verifiable();
+
+                _host.RunHostCommand(textView, "-help", "");
+                statusUtil.Verify();
+            }
+
+            [WpfFact]
+            public void ListMetaCommand_SingleMatch()
+            {
+                Create();
+                var textView = CreateTextView("");
+                var vim = _factory.Create<IVim>(MockBehavior.Loose);
+                var globalSettings = _factory.Create<IVimGlobalSettings>(MockBehavior.Loose);
+                var statusUtil = _factory.Create<IStatusUtil>();
+                vim.SetupGet(x => x.ActiveStatusUtil).Returns(statusUtil.Object);
+                vim.SetupGet(x => x.GlobalSettings).Returns(globalSettings.Object);
+                _hostRaw.VimCreated(vim.Object);
+
+                var command = _factory.Create<EnvDTE.Command>();
+                command.SetupGet(x => x.Name).Returns("Build.BuildSolution");
+                var commands = _factory.Create<EnvDTE.Commands>();
+                commands.Setup(x => x.GetEnumerator()).Returns(new List<EnvDTE.Command> { command.Object }.GetEnumerator());
+                _dte.SetupGet(x => x.Commands).Returns(commands.Object);
+
+                statusUtil.Setup(x => x.OnStatus("Found command: Build.BuildSolution")).Verifiable();
+
+                _host.RunHostCommand(textView, "-list", "Build");
+                statusUtil.Verify();
+            }
         }
 
         public abstract class GoToDefinitionTest : VsVimHostTest

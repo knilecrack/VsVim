@@ -8,7 +8,7 @@ using Xunit;
 
 namespace Vim.UnitTest
 {
-#if !VS_SPECIFIC_2022 // fold manager in test
+#if !VS_SPECIFIC_2022 && !VS_SPECIFIC_2026 // fold manager in test
     /// <summary>
     /// Tests for the IFoldManager implementation.  The Vim behavior for folds, especial that of 
     /// nested folds, is largely undocumented and this class serves to test the implementation 

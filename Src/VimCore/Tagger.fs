@@ -1,4 +1,4 @@
-﻿namespace Vim
+namespace Vim
 
 open Vim
 open Microsoft.VisualStudio.Text
@@ -117,6 +117,89 @@ type internal IncrementalSearchTaggerProvider
                 | Some vimBuffer ->
                     let func () = 
                         let taggerSource = new IncrementalSearchTaggerSource(vimBuffer)
+                        taggerSource :> IBasicTaggerSource<TextMarkerTag>
+                    let tagger = TaggerUtil.CreateBasicTagger textView.Properties _key func
+                    tagger :> obj :?> ITagger<'T>
+            else
+                null
+
+/// Tagger for the match highlights of an active flash session.  Dimming
+/// of the non-matching text is done with adornment rectangles by
+/// FlashAdornmentController (marker foregrounds lose to syntax colors)
+type FlashMatchHighlightTaggerSource (_vimBuffer: IVimBuffer) as this =
+
+    let _flashMode = _vimBuffer.FlashMode
+    let _textView = _vimBuffer.TextView
+    let _eventHandlers = DisposableBag()
+    let _changed = StandardEvent()
+    let mutable _matchSpans: SnapshotSpan list = []
+
+    static let EmptyTagList = ReadOnlyCollection<ITagSpan<TextMarkerTag>>([| |])
+
+    let update () =
+        if _vimBuffer.ModeKind <> ModeKind.Flash then
+            _matchSpans <- []
+        else
+            match TextViewUtil.GetVisibleSnapshotLineRange _textView with
+            | None ->
+                _matchSpans <- []
+            | Some _ ->
+                _matchSpans <- _flashMode.Matches |> List.map (fun m -> m.Span)
+
+    do
+        let updateAndRaise () =
+            // Update before raising; the editor can call back synchronously
+            update ()
+            _changed.Trigger this
+
+        _flashMode.MatchesChanged
+        |> Observable.subscribe (fun _ -> updateAndRaise())
+        |> _eventHandlers.Add
+
+        _vimBuffer.SwitchedMode
+        |> Observable.subscribe (fun _ -> updateAndRaise())
+        |> _eventHandlers.Add
+
+    member x.GetTags (span: SnapshotSpan) =
+        match _matchSpans with
+        | [] -> EmptyTagList
+        | _ ->
+            let snapshot = span.Snapshot
+            let list = ResizeArray<ITagSpan<TextMarkerTag>>()
+            for matchSpan in _matchSpans do
+                if matchSpan.Snapshot = snapshot && span.IntersectsWith(matchSpan) then
+                    let tag = TextMarkerTag(VimConstants.FlashMatchTagName)
+                    list.Add(TagSpan(matchSpan, tag) :> ITagSpan<TextMarkerTag>)
+            ReadOnlyCollection<ITagSpan<TextMarkerTag>>(list)
+
+    interface IBasicTaggerSource<TextMarkerTag> with
+        member x.GetTags span = x.GetTags span
+        [<CLIEvent>]
+        member x.Changed = _changed.Publish
+
+    interface System.IDisposable with
+        member x.Dispose() = _eventHandlers.DisposeAll()
+
+[<Export(typeof<IViewTaggerProvider>)>]
+[<ContentType(VimConstants.AnyContentType)>]
+[<TextViewRole(PredefinedTextViewRoles.Editable)>]
+[<TagType(typeof<TextMarkerTag>)>]
+type internal FlashMatchHighlightTaggerProvider
+    [<ImportingConstructor>]
+    (
+        _vim: IVim
+    ) =
+
+    let _key = obj()
+
+    interface IViewTaggerProvider with
+        member x.CreateTagger<'T when 'T :> ITag> (textView: ITextView, textBuffer) =
+            if textView.TextBuffer = textBuffer then
+                match _vim.GetOrCreateVimBufferForHost textView with
+                | None -> null
+                | Some vimBuffer ->
+                    let func () =
+                        let taggerSource = new FlashMatchHighlightTaggerSource(vimBuffer)
                         taggerSource :> IBasicTaggerSource<TextMarkerTag>
                     let tagger = TaggerUtil.CreateBasicTagger textView.Properties _key func
                     tagger :> obj :?> ITagger<'T>
@@ -292,6 +375,122 @@ type HighlightIncrementalSearchTaggerProvider
                         let wordNavigator = vimBuffer.WordNavigator
                         let taggerSource = new HighlightSearchTaggerSource(textView, vimBuffer.GlobalSettings, _vim.VimData, _vim.VimHost)
                         taggerSource :> IAsyncTaggerSource<HighlightSearchData , TextMarkerTag>
+                    let tagger = TaggerUtil.CreateAsyncTagger textView.Properties _key func
+                    tagger :> obj :?> ITagger<'T>
+            else
+                null
+
+/// Data for yank highlighting
+type YankHighlightData = {
+    Span: SnapshotSpan option
+    SnapshotVersion: int option
+}
+
+/// Tagger for highlighting yanked text briefly
+type YankHighlightTaggerSource
+    (
+        _vimBuffer: IVimBuffer
+    ) as this =
+
+    let _textBuffer = _vimBuffer.TextBuffer
+    let _changed = StandardEvent()
+    let _eventHandlers = DisposableBag()
+    let mutable _currentYankData: YankHighlightData = { Span = None; SnapshotVersion = None }
+
+    static let EmptyTagList = ReadOnlyCollection<ITagSpan<TextMarkerTag>>([| |])
+
+    do
+        // Subscribe to yank events from both IVimBuffer and IVimTextBuffer
+        _vimBuffer.YankOccurred
+        |> Observable.subscribe (fun args ->
+            // Store the yanked span
+            _currentYankData <- {
+                Span = Some args.Span
+                SnapshotVersion = Some args.Span.Snapshot.Version.VersionNumber
+            }
+            _changed.Trigger this
+
+            // Clear the highlight after 150ms
+            async {
+                do! Async.Sleep 150
+                _currentYankData <- { Span = None; SnapshotVersion = None }
+                _changed.Trigger this
+            } |> Async.Start
+        )
+        |> _eventHandlers.Add
+
+    member x.GetDataForSnapshot() =
+        _currentYankData
+
+    member x.GetTagsPrompt() =
+        match _currentYankData.Span with
+        | None -> Some Seq.empty
+        | Some span ->
+            // Check if the span is still valid for the current snapshot
+            if span.Snapshot = _textBuffer.CurrentSnapshot then
+                let tag = TextMarkerTag(VimConstants.YankTagName)
+                let tagSpan = TagSpan(span, tag) :> ITagSpan<TextMarkerTag>
+                Some (Seq.singleton tagSpan)
+            else
+                // Span is from an old snapshot, try to translate it
+                match _currentYankData.SnapshotVersion with
+                | None -> Some Seq.empty
+                | Some version ->
+                    try
+                        let translatedSpan = span.TranslateTo(_textBuffer.CurrentSnapshot, SpanTrackingMode.EdgeInclusive)
+                        let tag = TextMarkerTag(VimConstants.YankTagName)
+                        let tagSpan = TagSpan(translatedSpan, tag) :> ITagSpan<TextMarkerTag>
+                        Some (Seq.singleton tagSpan)
+                    with
+                    | _ -> Some Seq.empty
+
+    [<UsedInBackgroundThread>]
+    static member GetTagsInBackground (yankData: YankHighlightData) (span: SnapshotSpan) (cancellationToken: CancellationToken) =
+        match yankData.Span with
+        | None -> EmptyTagList
+        | Some yankSpan ->
+            // Check if the yank span intersects with the requested span
+            if yankSpan.Snapshot = span.Snapshot && yankSpan.IntersectsWith(span) then
+                let tag = TextMarkerTag(VimConstants.YankTagName)
+                let tagSpan = TagSpan(yankSpan, tag) :> ITagSpan<TextMarkerTag>
+                ReadOnlyCollection<ITagSpan<TextMarkerTag>>([| tagSpan |])
+            else
+                EmptyTagList
+
+    interface IAsyncTaggerSource<YankHighlightData, TextMarkerTag> with
+        member x.Delay = Option.Some 0
+        member x.TextSnapshot = _textBuffer.CurrentSnapshot
+        member x.TextView = None
+        member x.GetDataForSnapshot _ = x.GetDataForSnapshot()
+        member x.GetTagsInBackground yankData span cancellationToken = YankHighlightTaggerSource.GetTagsInBackground yankData span cancellationToken
+        member x.TryGetTagsPrompt _ = x.GetTagsPrompt()
+        [<CLIEvent>]
+        member x.Changed = _changed.Publish
+
+    interface System.IDisposable with
+        member x.Dispose() = _eventHandlers.DisposeAll()
+
+[<Export(typeof<IViewTaggerProvider>)>]
+[<ContentType(VimConstants.AnyContentType)>]
+[<TextViewRole(PredefinedTextViewRoles.Editable)>]
+[<TagType(typeof<TextMarkerTag>)>]
+type YankHighlightTaggerProvider
+    [<ImportingConstructor>]
+    (
+        _vim: IVim
+    ) =
+
+    let _key = obj()
+
+    interface IViewTaggerProvider with
+        member x.CreateTagger<'T when 'T :> ITag> ((textView: ITextView), textBuffer) =
+            if textView.TextBuffer = textBuffer then
+                match _vim.GetOrCreateVimBufferForHost textView with
+                | None -> null
+                | Some vimBuffer ->
+                    let func () =
+                        let taggerSource = new YankHighlightTaggerSource(vimBuffer)
+                        taggerSource :> IAsyncTaggerSource<YankHighlightData, TextMarkerTag>
                     let tagger = TaggerUtil.CreateAsyncTagger textView.Properties _key func
                     tagger :> obj :?> ITagger<'T>
             else

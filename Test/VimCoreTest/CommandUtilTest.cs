@@ -994,7 +994,7 @@ namespace Vim.UnitTest
                     Assert.Equal(3, _windowSettings.Scroll);
                 }
 
-#if !VS_SPECIFIC_2022 // https://github.com/VsVim/VsVim/issues/2916
+#if !VS_SPECIFIC_2022 && !VS_SPECIFIC_2026 // https://github.com/VsVim/VsVim/issues/2916
                 /// <summary>
                 /// Make sure that scroll lines down handles a fold as a single line
                 /// </summary>
@@ -2851,7 +2851,7 @@ namespace Vim.UnitTest
                 Assert.Equal(OperationKind.LineWise, UnnamedRegister.OperationKind);
             }
 
-#if !VS_SPECIFIC_2022 // https://github.com/VsVim/VsVim/issues/2916
+#if !VS_SPECIFIC_2022 && !VS_SPECIFIC_2026 // https://github.com/VsVim/VsVim/issues/2916
             /// <summary>
             /// Ensure that yank lines operates against the visual buffer and will yank 
             /// the folded text

@@ -277,7 +277,7 @@ namespace Vim.UnitTest
                     visualSpan.Select(_textView, SearchPath.Forward);
                     DoEvents();
 
-#if VS_SPECIFIC_2022
+#if VS_SPECIFIC_2022 || VS_SPECIFIC_2026
                     var spans = new[]
                     {
                         _textBuffer.GetLineSpan(0, 1, 4),
@@ -304,7 +304,7 @@ namespace Vim.UnitTest
                     var visualSpan = VisualSpan.NewBlock(blockSpan);
                     visualSpan.Select(_textView, SearchPath.Forward);
                     DoEvents();
-#if VS_SPECIFIC_2022
+#if VS_SPECIFIC_2022 || VS_SPECIFIC_2026
                     var spans = new[]
                     {
                         _textBuffer.GetLineSpan(0, 1, 5),

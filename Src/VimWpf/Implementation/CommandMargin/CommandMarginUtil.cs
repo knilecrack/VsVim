@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.Linq;
 using Vim.Extensions;
@@ -168,6 +168,9 @@ namespace Vim.UI.Wpf.Implementation.CommandMargin
                     break;
                 case ModeKind.SubstituteConfirm:
                     status = GetStatusSubstituteConfirm(vimBuffer.SubstituteConfirmMode);
+                    break;
+                case ModeKind.Flash:
+                    status = "FLASH";
                     break;
                 default:
                     status = string.Empty;

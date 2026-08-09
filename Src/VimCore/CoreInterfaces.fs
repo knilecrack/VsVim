@@ -1,4 +1,4 @@
-﻿#light
+#light
 
 namespace Vim
 open Microsoft.VisualStudio.Text
@@ -1279,6 +1279,7 @@ type ModeKind =
     | SelectLine = 10 
     | SelectBlock = 11
     | ExternalEdit = 12
+    | Flash = 13
 
     /// Mode when Vim is disabled.  It won't interact with events it otherwise
     /// would such as selection changes
@@ -1709,7 +1710,7 @@ type CharacterSpan =
 
     member x.VirtualSpan = VirtualSnapshotSpan(x.VirtualStart, x.VirtualEnd)
 
-    member x.ColumnSpan = SnapshotColumnSpan(x.Span)
+    member x.ColumnSpan = SnapshotColumnSpan(x.Span) 
 
     member x.VirtualColumnSpan = VirtualSnapshotColumnSpan(x.VirtualSpan)
 
@@ -1785,8 +1786,13 @@ type BlockSpan =
             else
                 VirtualSnapshotColumn.GetColumnForSpaces(span.Start.Line, endColumnSpaces, tabStop), -width
 
-        let height = VirtualSnapshotSpanUtil.GetLineCount span.VirtualSpan
-        BlockSpan(startColumn, tabStop = tabStop, spaces = width, height = height, endOfLine = false)
+        let height =
+            let mutable h = VirtualSnapshotSpanUtil.GetLineCount span.VirtualSpan
+            if h = 0 then
+                h <- 1
+            h
+
+        { _startColumn = startColumn; _tabStop = tabStop; _spaces = width; _height = height; _endOfLine = false }
 
     /// Create a BlockSpan for the given SnapshotSpan.  The returned BlockSpan
     /// will have a minimum of 1 for height and width.  The start of the
@@ -2714,6 +2720,9 @@ type ModeArgument =
     /// Cancel any operation that is in-progress, such as refactoring
     | CancelOperation
 
+    /// Enter flash mode with the given session kind
+    | Flash of FlashKind: FlashKind
+
 with
 
     /// Extract any linked undo transaction from the mode argument
@@ -2728,6 +2737,7 @@ with
         | ModeArgument.Substitute _ -> Option.None
         | ModeArgument.PartialCommand _ -> Option.None
         | ModeArgument.CancelOperation -> Option.None
+        | ModeArgument.Flash _ -> Option.None
 
 
     /// Complete any embedded linked undo transaction
@@ -5614,10 +5624,17 @@ and IVimTextBuffer =
     /// The end point of the last change or yank
     abstract LastChangeOrYankEnd: SnapshotPoint option with get, set
 
+    /// Raised when a yank completes. Span is in the current snapshot.
+    [<CLIEvent>]
+    abstract YankOccurred: IDelegateEvent<System.EventHandler<SnapshotSpanEventArgs>>
+
+    /// Raise the yank occurred event for a given span
+    abstract RaiseYankOccurred: SnapshotSpan -> unit
+
     /// If we are in the middle of processing a "one time command" (<c-o>) then this will
     /// hold the ModeKind which will be switched back to after it's completed
     abstract InOneTimeCommand: ModeKind option with get, set
-    
+
     /// True if we are processing a "one time command" initiated from a select mode,
     /// or from a select mode initiated from within another "one time command", e.g. "(insert) SELECT".
     abstract InSelectModeOneTimeCommand: bool with get, set
@@ -5681,15 +5698,13 @@ and IVimTextBuffer =
     /// Switch the current mode to the provided value
     abstract SwitchMode: ModeKind -> ModeArgument -> unit
 
-    /// Raised when the mode is switched.  Returns the old and new mode 
+    /// Raised when the mode is switched.  Returns the old and new mode
     [<CLIEvent>]
     abstract SwitchedMode: IDelegateEvent<System.EventHandler<SwitchModeKindEventArgs>>
 
-    /// Raised when a mark is set
-    [<CLIEvent>]
-    abstract MarkSet: IDelegateEvent<System.EventHandler<MarkTextBufferEventArgs>>
-
 /// Main interface for the Vim editor engine so to speak. 
+
+
 and IVimBuffer =
 
     /// Sequence of available Modes
@@ -5824,6 +5839,9 @@ and IVimBuffer =
     /// ISubstituteConfirmDoe instance for substitute confirm mode
     abstract SubstituteConfirmMode: ISubstituteConfirmMode
 
+    /// IFlashMode instance for flash mode
+    abstract FlashMode: IFlashMode
+
     /// IMode instance for external edits
     abstract ExternalEditMode: IMode
 
@@ -5877,6 +5895,11 @@ and IVimBuffer =
     /// Raised when the mode is switched.  Returns the old and new mode 
     [<CLIEvent>]
     abstract SwitchedMode: IDelegateEvent<System.EventHandler<SwitchModeEventArgs>>
+
+    /// Raised when a yank completes. Span is in the current snapshot.
+    [<CLIEvent>]
+    abstract YankOccurred: IDelegateEvent<System.EventHandler<SnapshotSpanEventArgs>>
+
 
     /// Raised when a KeyInput is received by the buffer.  This will be raised for the 
     /// KeyInput which was received and does not consider any mappings
@@ -6085,6 +6108,30 @@ and ISubstituteConfirmMode =
     abstract CurrentMatchChanged: IEvent<SnapshotSpan option> 
 
     inherit IMode 
+
+/// A single labeled match in a flash session
+and FlashMatch = {
+
+    /// The span of the matched text
+    Span: SnapshotSpan
+
+    /// The label which jumps to this match
+    Label: string
+}
+
+and IFlashMode =
+
+    /// The current search text (FlashKind.Search) or target char (find kinds)
+    abstract SearchText: string
+
+    /// The current set of labeled matches
+    abstract Matches: FlashMatch list
+
+    /// Raised when SearchText or Matches change, and when the session ends
+    [<CLIEvent>]
+    abstract MatchesChanged: IDelegateEvent<System.EventHandler>
+
+    inherit IMode
 
 [<Extension>]
 module VimExtensions = 

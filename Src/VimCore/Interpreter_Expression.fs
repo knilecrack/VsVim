@@ -602,6 +602,9 @@ and [<RequireQualifiedAccess>] LineCommand =
     /// Run a host command.  The first string is the command and the second string is the argument
     | HostCommand of HasBang: bool * Command: string * Argument: string
 
+    /// Enter flash mode with the given session kind
+    | Flash of FlashKind: FlashKind
+
     /// Process the 'split' command.  The values range as follows
     ///  - Height of the window if specified.  Expressed as a range.  The actual documentation
     ///    doesn't specify a range can be used here but usage indicates it can

@@ -243,6 +243,11 @@ namespace Vim.EditorHost
             return ModeArgument.NewSubstitute(span, range.Value, data);
         }
 
+        internal static ModeArgument CreateFlashArgument(FlashKind kind)
+        {
+            return ModeArgument.NewFlash(kind);
+        }
+
         internal static MotionResult CreateMotionResult(
             SnapshotSpan span,
             bool isForward = true,

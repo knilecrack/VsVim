@@ -1,3 +1,3 @@
-﻿#light
+#light
 
 namespace Vim
